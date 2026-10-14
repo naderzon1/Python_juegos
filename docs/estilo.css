@@ -1,0 +1,185 @@
+/* Estilo común de los juegos web: pantalla completa, tema oscuro y botones táctiles grandes. */
+:root {
+  --fondo: #101624;
+  --panel: #0b0f1a;
+  --boton: #1a2338;
+  --boton-pulsado: #2c3d63;
+  --borde: #26324d;
+  --texto: #e8ecf4;
+  --tenue: #8a95b3;
+  --acento: #4fc3f7;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  background: var(--fondo);
+  color: var(--texto);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* --- páginas de juego ------------------------------------------------------ */
+body.juego {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "barra barra" "zona zona" "izq der";
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.barra {
+  grid-area: barra;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+}
+.barra h1 {
+  font-size: 17px;
+  margin: 0 auto 0 4px;
+  white-space: nowrap;
+}
+.barra button, .barra a {
+  min-width: 42px;
+  height: 40px;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--borde);
+  background: var(--boton);
+  color: var(--texto);
+  font: inherit;
+  font-size: 15px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.barra button:active, .barra a:active { background: var(--boton-pulsado); }
+@media (max-width: 480px) {
+  .barra { gap: 5px; padding: 6px; }
+  .barra h1 { display: none; }
+  .barra a:first-child { margin-right: auto; }
+  .barra button, .barra a { min-width: 38px; padding: 0 8px; font-size: 14px; }
+}
+
+.zona {
+  grid-area: zona;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+canvas {
+  display: block;
+  border-radius: 6px;
+}
+
+.controles {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+}
+.controles.izq { grid-area: izq; }
+.controles.der { grid-area: der; }
+.controles button {
+  flex: 1;
+  min-height: 62px;
+  border-radius: 14px;
+  border: 1px solid var(--borde);
+  background: var(--boton);
+  color: var(--texto);
+  font-size: 26px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.controles button.pulsado { background: var(--boton-pulsado); border-color: var(--acento); }
+.controles button small { display: block; font-size: 11px; font-weight: 400; color: var(--tenue); }
+
+.ayuda {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 4px 8px 8px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--tenue);
+  display: none;
+}
+.girar {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 6px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--tenue);
+  display: none;
+}
+
+/* teléfono acostado: los botones van a los lados del tablero */
+@media (orientation: landscape) and (max-height: 620px) {
+  body.juego {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "barra barra barra" "izq zona der";
+  }
+  .controles { flex-direction: column; justify-content: center; width: 116px; }
+  .controles button { flex: 0 0 auto; min-height: 58px; }
+}
+
+/* computador con ratón: sin botones táctiles, con la ayuda del teclado */
+@media (hover: hover) and (pointer: fine) {
+  .controles { display: none; }
+  body.juego {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: "barra" "zona" "ayuda";
+  }
+  .ayuda { display: block; grid-area: ayuda; }
+}
+
+/* juegos apaisados en un teléfono vertical: sugerir girarlo */
+@media (orientation: portrait) and (max-width: 600px) {
+  body.apaisado .girar { display: block; }
+}
+
+/* --- portada --------------------------------------------------------------- */
+body.portada {
+  min-height: 100vh;
+  padding: 24px 16px 40px;
+}
+.portada main { max-width: 760px; margin: 0 auto; }
+.portada h1 { font-size: 30px; margin: 8px 0 6px; }
+.portada p.lema { color: var(--tenue); margin: 0 0 24px; line-height: 1.5; }
+.tarjetas {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.tarjeta {
+  display: block;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid var(--borde);
+  background: var(--panel);
+  color: var(--texto);
+  text-decoration: none;
+}
+.tarjeta:hover, .tarjeta:focus-visible { border-color: var(--acento); }
+.tarjeta .icono { font-size: 34px; }
+.tarjeta h2 { font-size: 20px; margin: 8px 0 6px; }
+.tarjeta p { margin: 0; color: var(--tenue); font-size: 14px; line-height: 1.45; }
+.portada footer { margin-top: 28px; color: var(--tenue); font-size: 13px; line-height: 1.5; }
+.portada footer a { color: var(--acento); }

@@ -1,0 +1,9 @@
+# entorno virtual y cachés de Python
+.venv/
+__pycache__/
+*.pyc
+
+# archivos que los juegos generan solos al ejecutarse
+sonidos_plataformas/
+bloques_record.txt
+*.keras

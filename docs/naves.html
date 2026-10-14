@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#05060f">
+<title>Duelo de naves</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body class="juego">
+<header class="barra">
+  <a href="index.html" aria-label="Volver al menú">⌂</a>
+  <h1>Naves</h1>
+  <button id="b-modo">Tú vs PC</button>
+  <button id="b-nivel">Media</button>
+  <button id="b-sonido" aria-label="Sonido">🔊</button>
+  <button id="b-pausa" aria-label="Pausa">⏸</button>
+  <button id="b-reiniciar" aria-label="Reiniciar">↻</button>
+</header>
+<div class="zona"><canvas id="lienzo"></canvas></div>
+<p class="ayuda">J1: A / D + W o Espacio · J2: ← → + ↑ o Enter (en Tú vs PC también flechas) · J cambiar modo · 1 / 2 / 3 dificultad · P pausa · R reiniciar · M sonido</p>
+
+<script src="comun.js"></script>
+<script>
+'use strict';
+const ANCHO = 700, ALTO = 600, NAVE_W = 44, NAVE_H = 30, VIDA = 10;
+const VEL_NAVE = 7, VEL_BALA = 9, ENFRIAMIENTO = 15;  // en pasos de 1/60 s, como en Python
+const Y_NAVE = [ALTO - 45, 45];                        // bando 0 abajo, bando 1 arriba
+const ARRASTRE = 1.3;                                  // cuánto se mueve la nave por cada píxel que se mueve el dedo
+
+// modos de juego: el botón los recorre en este orden
+const UNO = 0, EQUIPO = 1, DUELO = 2;
+const MODO = ['PC vs USUARIO', 'PC vs 2 USUARIOS', 'USUARIO vs USUARIO'];
+const BOTON_MODO = ['Tú vs PC', '2 vs PC', '1 vs 1'];
+const NOMBRES = [['TÚ', 'COMPUTADOR'], ['JUGADOR 1 + JUGADOR 2', 'COMPUTADOR'], ['JUGADOR 1', 'JUGADOR 2']];
+const FINAL = [['¡VICTORIA!', 'DERROTA'], ['¡GANA EL EQUIPO!', 'GANÓ EL COMPUTADOR'], ['¡GANA JUGADOR 1!', '¡GANA JUGADOR 2!']];
+
+// nave 0: jugador 1 | nave 1: computador o jugador 2 rival | nave 2: jugador 2 aliado (solo en equipo)
+const BANDO = [0, 1, 0];
+const COLOR = ['#4fc3f7', '#ff7043', '#81c784'];
+const COLOR_BALA = ['#80d8ff', '#ffab91', '#c8e6c9'];
+const TECLAS_SOLO = [['a', 'arrowleft'], ['d', 'arrowright'], ['w', ' ']];
+const TECLAS_J1 = [['a'], ['d'], ['w', ' ']];
+const TECLAS_J2 = [['arrowleft'], ['arrowright'], ['arrowup', 'enter']];
+
+// contra dos jugadores el computador tiene el doble de vida y dispara más seguido
+const VIDA_PC_EQUIPO = 2, CADENCIA_PC_EQUIPO = 0.7;
+// nombre, velocidad nave IA, enfriamiento de disparo IA, esquiva (0-1), error de puntería px
+const DIFICULTAD = { 1: ['Fácil', 3.0, 55, 0.3, 60], 2: ['Media', 4.5, 38, 0.7, 30], 3: ['Difícil', 6.0, 26, 0.95, 10] };
+const LETRA = 'ui-monospace, Consolas, "Courier New", monospace';
+
+Sonido.definir('disparo', (s) => { const p = []; s.tono(p, 0, 0.07, 1100, 500, 0.1); return p; });
+Sonido.definir('impacto', (s) => {
+  const p = []; s.tono(p, 0, 0.1, 260, 90, 0.3); s.tono(p, 0, 0.06, 0, null, 0.2, 'ruido'); return p;
+});
+Sonido.definir('explosion', (s) => {
+  const p = []; s.tono(p, 0, 0.6, 0, null, 0.4, 'ruido'); s.tono(p, 0, 0.5, 140, 35, 0.35, 'triangular'); return p;
+});
+Sonido.definir('victoria', (s) => {
+  const p = [];
+  s.melodia(p, [[72, 1], [76, 1], [79, 1], [84, 1], [88, 1], [91, 1], [96, 6]], 0.1, 0.22, 'cuadrada');
+  s.melodia(p, [[48, 3], [55, 3], [60, 6]], 0.1, 0.3, 'triangular');
+  return p;
+});
+Sonido.definir('derrota', (s) => {
+  const p = []; s.melodia(p, [[72, 2], [67, 2], [64, 2], [60, 5]], 0.16, 0.35, 'triangular'); return p;
+});
+
+const j = { estado: 'inicio', modo: Guardado.leer('naves_modo', UNO), nivel: Guardado.leer('naves_nivel', 2) };
+j.victorias = [0, 0];
+const teclas = new Set();
+const dedos = new Map(); // id del dedo -> { nave, x }
+const estrellas = Array.from({ length: 130 }, () => [Math.random() * ANCHO, Math.random() * ALTO,
+  [1, 1, 1, 2, 2, 3][Math.floor(Math.random() * 6)],
+  ['#445', '#889', '#ccd', '#fff', '#ffe9a8', '#a8d8ff'][Math.floor(Math.random() * 6)]]);
+
+function reiniciar() {
+  const equipo = j.modo === EQUIPO;
+  j.naves = equipo ? [0, 1, 2] : [0, 1];
+  j.x = [equipo ? ANCHO / 3 : ANCHO / 2, ANCHO / 2, ANCHO * 2 / 3];
+  j.vidaMax = [VIDA, equipo ? VIDA * VIDA_PC_EQUIPO : VIDA, VIDA];
+  j.vida = [...j.vidaMax];
+  j.cd = [0, 40, 0];
+  j.balas = [];        // [x, y, vy, nave que disparó]
+  j.particulas = [];   // [x, y, vx, vy, vida, color]
+  j.objetivoIA = ANCHO / 2;
+  j.pausa = false;
+  j.fin = false;
+  j.ganador = null;    // bando ganador (null si hay empate)
+  j.tAyuda = 4;
+  dedos.clear();
+}
+
+function disparar(i) {
+  const d = BANDO[i] === 0 ? -1 : 1;
+  j.balas.push([j.x[i], Y_NAVE[BANDO[i]] + d * 15, d * VEL_BALA, i]);
+  Sonido.tocar('disparo');
+}
+
+function tocaDisparar(i) {
+  for (const dedo of dedos.values()) if (dedo.nave === i) return true;
+  return false;
+}
+
+function moverHumano(i, [izq, der, disp]) {
+  if (j.vida[i] <= 0) return;
+  if (izq.some((k) => teclas.has(k))) j.x[i] -= VEL_NAVE;
+  if (der.some((k) => teclas.has(k))) j.x[i] += VEL_NAVE;
+  j.x[i] = Math.max(NAVE_W / 2, Math.min(ANCHO - NAVE_W / 2, j.x[i]));
+  j.cd[i] = Math.max(0, j.cd[i] - 1);
+  // con el dedo apoyado la nave dispara sola
+  if ((disp.some((k) => teclas.has(k)) || tocaDisparar(i)) && j.cd[i] === 0) {
+    disparar(i);
+    j.cd[i] = ENFRIAMIENTO;
+  }
+}
+
+function moverIA() {
+  const [, vel, cd, esquiva, error] = DIFICULTAD[j.nivel];
+  const rivales = j.naves.filter((i) => BANDO[i] === 0 && j.vida[i] > 0);
+  // 1) esquivar la bala rival más cercana
+  let peligro = null;
+  for (const b of j.balas) {
+    if (BANDO[b[3]] === 0 && b[1] < 260 && Math.abs(b[0] - j.x[1]) < NAVE_W) {
+      if (peligro === null || b[1] < peligro[1]) peligro = b;
+    }
+  }
+  if (peligro && Math.random() < esquiva) {
+    let hacia = j.x[1] >= peligro[0] ? 1 : -1;
+    if (j.x[1] < NAVE_W) hacia = 1;
+    else if (j.x[1] > ANCHO - NAVE_W) hacia = -1;
+    j.x[1] += hacia * vel;
+  } else {
+    // 2) apuntar al rival más cercano con algo de error
+    if (Math.random() < 0.03) {
+      const cerca = rivales.reduce((a, b) => (Math.abs(j.x[b] - j.x[1]) < Math.abs(j.x[a] - j.x[1]) ? b : a));
+      j.objetivoIA = j.x[cerca] + (Math.random() * 2 - 1) * error;
+    }
+    const dif = j.objetivoIA - j.x[1];
+    if (Math.abs(dif) > 4) j.x[1] += Math.max(-vel, Math.min(vel, dif));
+  }
+  j.x[1] = Math.max(NAVE_W / 2, Math.min(ANCHO - NAVE_W / 2, j.x[1]));
+  // 3) disparar si está alineada (o de vez en cuando por sorpresa)
+  j.cd[1] = Math.max(0, j.cd[1] - 1);
+  const alineada = rivales.some((i) => Math.abs(j.x[1] - j.x[i]) < NAVE_W * 0.7);
+  if (j.cd[1] === 0 && (alineada || Math.random() < 0.01)) {
+    disparar(1);
+    j.cd[1] = cd + Math.floor(Math.random() * 11);
+    if (j.modo === EQUIPO) j.cd[1] = Math.floor(j.cd[1] * CADENCIA_PC_EQUIPO);
+  }
+}
+
+function moverBalas() {
+  const vivas = [];
+  for (const b of j.balas) {
+    b[1] += b[2];
+    if (b[1] < -10 || b[1] > ALTO + 10) continue;
+    // la bala golpea a cualquier nave viva del bando contrario
+    const golpe = j.naves.find((i) => BANDO[i] !== BANDO[b[3]] && j.vida[i] > 0
+      && Math.abs(b[0] - j.x[i]) < NAVE_W / 2 && Math.abs(b[1] - Y_NAVE[BANDO[i]]) < NAVE_H / 2 + 4);
+    if (golpe !== undefined) {
+      j.vida[golpe]--;
+      explosion(b[0], b[1], COLOR[golpe], 8);
+      if (j.vida[golpe] <= 0) {
+        explosion(j.x[golpe], Y_NAVE[BANDO[golpe]], '#ffd54f', 50);
+        Sonido.tocar('explosion');
+      } else {
+        Sonido.tocar('impacto');
+      }
+      if (navigator.vibrate && BANDO[golpe] === 0 && j.modo !== DUELO) navigator.vibrate(40);
+      continue;
+    }
+    vivas.push(b);
+  }
+  j.balas = vivas;
+  // un bando pierde cuando no le queda ninguna nave
+  const vivo = [0, 1].map((bando) => j.naves.some((i) => BANDO[i] === bando && j.vida[i] > 0));
+  if (!vivo[0] || !vivo[1]) {
+    j.fin = true;
+    j.ganador = vivo[0] ? 0 : vivo[1] ? 1 : null;
+    if (j.ganador !== null) j.victorias[j.ganador]++;
+    Sonido.tocar(j.ganador === 1 && j.modo !== DUELO ? 'derrota' : 'victoria');
+  }
+}
+
+function explosion(x, y, color, n) {
+  for (let k = 0; k < n; k++) {
+    j.particulas.push([x, y, Math.random() * 6 - 3, Math.random() * 6 - 3, 10 + Math.floor(Math.random() * 21), color]);
+  }
+}
+
+function moverEfectos() {
+  for (const q of j.particulas) { q[0] += q[2]; q[1] += q[3]; q[4]--; }
+  j.particulas = j.particulas.filter((q) => q[4] > 0);
+  for (const s of estrellas) {
+    s[1] += s[2] * 0.5;
+    if (s[1] > ALTO) { s[0] = Math.random() * ANCHO; s[1] = 0; }
+  }
+}
+
+const paso = pasosFijos(() => {
+  if (j.estado !== 'jugando' || j.pausa) return;
+  if (!j.fin) {
+    if (j.modo === UNO) {
+      moverHumano(0, TECLAS_SOLO);
+    } else {
+      moverHumano(0, TECLAS_J1);
+      moverHumano(j.modo === EQUIPO ? 2 : 1, TECLAS_J2);
+    }
+    if (j.modo !== DUELO) moverIA();
+    moverBalas();
+  }
+  moverEfectos();
+});
+
+// --- controles ---
+const $ = (id) => document.getElementById(id);
+function empezar() {
+  Sonido.iniciar();
+  if (j.estado === 'inicio') { j.estado = 'jugando'; reiniciar(); }
+}
+function alternarPausa() {
+  if (j.estado !== 'jugando' || j.fin) return;
+  j.pausa = !j.pausa;
+  dedos.clear();
+}
+function cambiarModo() {
+  j.modo = (j.modo + 1) % MODO.length;
+  j.victorias = [0, 0];
+  Guardado.escribir('naves_modo', j.modo);
+  actualizarBotones();
+  reiniciar();
+}
+function cambiarNivel(n) {
+  j.nivel = n || (j.nivel % 3) + 1;
+  Guardado.escribir('naves_nivel', j.nivel);
+  actualizarBotones();
+}
+function alternarSonido() {
+  Sonido.iniciar();
+  Sonido.alternar();
+  actualizarBotones();
+}
+function actualizarBotones() {
+  $('b-modo').textContent = BOTON_MODO[j.modo];
+  $('b-nivel').textContent = DIFICULTAD[j.nivel][0];
+  $('b-nivel').style.display = j.modo === DUELO ? 'none' : '';
+  $('b-sonido').textContent = Sonido.activo ? '🔊' : '🔇';
+}
+$('b-modo').addEventListener('click', () => { Sonido.iniciar(); cambiarModo(); });
+$('b-nivel').addEventListener('click', () => { Sonido.iniciar(); cambiarNivel(); });
+$('b-sonido').addEventListener('click', alternarSonido);
+$('b-pausa').addEventListener('click', () => { Sonido.iniciar(); alternarPausa(); });
+$('b-reiniciar').addEventListener('click', () => { Sonido.iniciar(); j.estado = 'jugando'; reiniciar(); });
+actualizarBotones();
+
+addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' '].includes(k)) e.preventDefault();
+  teclas.add(k);
+  if (e.repeat) return;
+  if (j.estado === 'inicio') { empezar(); return; }
+  if (k === 'p') alternarPausa();
+  else if (k === 'r') reiniciar();
+  else if (k === 'm') alternarSonido();
+  else if (k === 'j') cambiarModo();
+  else if (['1', '2', '3'].includes(k)) cambiarNivel(Number(k));
+});
+addEventListener('keyup', (e) => teclas.delete(e.key.toLowerCase()));
+addEventListener('blur', () => teclas.clear());
+
+// qué nave controla un dedo según dónde se apoya
+function naveDelDedo(pos) {
+  if (j.modo === UNO) return 0;
+  if (j.modo === DUELO) return pos.y >= ALTO / 2 ? 0 : 1;
+  if (pos.y < ALTO / 2) return null; // en equipo la mitad de arriba es del computador
+  return pos.x < ANCHO / 2 ? 0 : 2;
+}
+
+// se escucha toda la zona del juego, no solo el dibujo: así en un teléfono vertical el dedo
+// puede ir en el espacio libre de abajo (o de arriba) sin tapar la nave
+const lienzo = $('lienzo');
+const tactil = lienzo.parentElement;
+const pantalla = prepararLienzo(lienzo, ANCHO, ALTO);
+const g = pantalla.g;
+tactil.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  if (j.estado === 'inicio') { empezar(); return; }
+  if (j.fin) { reiniciar(); return; }
+  if (j.pausa) { alternarPausa(); return; }
+  const pos = pantalla.aJuego(e);
+  const nave = naveDelDedo(pos);
+  if (nave === null) return;
+  dedos.set(e.pointerId, { nave, x: pos.x });
+  try { tactil.setPointerCapture(e.pointerId); } catch { /* sin captura */ }
+});
+tactil.addEventListener('pointermove', (e) => {
+  const dedo = dedos.get(e.pointerId);
+  if (!dedo || j.pausa || j.fin) return;
+  const x = pantalla.aJuego(e).x;
+  if (j.vida[dedo.nave] > 0) {
+    j.x[dedo.nave] = Math.max(NAVE_W / 2, Math.min(ANCHO - NAVE_W / 2, j.x[dedo.nave] + (x - dedo.x) * ARRASTRE));
+  }
+  dedo.x = x;
+});
+const soltarDedo = (e) => dedos.delete(e.pointerId);
+tactil.addEventListener('pointerup', soltarDedo);
+tactil.addEventListener('pointercancel', soltarDedo);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && j.estado === 'jugando' && !j.fin && !j.pausa) alternarPausa();
+});
+
+// --- dibujo ---
+// el fondo (degradado, nebulosas, planeta, luna) no cambia: se dibuja una vez en un lienzo aparte
+const fondo = document.createElement('canvas');
+fondo.width = ANCHO * 2;
+fondo.height = ALTO * 2;
+(() => {
+  const f = fondo.getContext('2d');
+  f.scale(2, 2);
+  const grad = f.createLinearGradient(0, 0, 0, ALTO);
+  grad.addColorStop(0, '#04050f');
+  grad.addColorStop(1, '#12092a');
+  f.fillStyle = grad;
+  f.fillRect(0, 0, ANCHO, ALTO);
+  // nebulosas: capas concéntricas translúcidas
+  for (const [x, y, rx, ry, col] of [[130, 170, 190, 90, '156,39,176'], [570, 110, 170, 70, '0,172,193'],
+    [380, 470, 230, 90, '101,31,255'], [90, 520, 160, 60, '2,136,209']]) {
+    for (let k = 0; k < 6; k++) {
+      const t = 1 - k * 0.16;
+      f.fillStyle = `rgba(${col},0.07)`;
+      f.beginPath();
+      f.ellipse(x, y, rx * t, ry * t, 0, 0, Math.PI * 2);
+      f.fill();
+    }
+  }
+  // planeta gigante con anillos (la mitad de atrás del anillo va detrás del planeta)
+  const [px, py, pr] = [580, 450, 55];
+  f.lineWidth = 5;
+  f.strokeStyle = '#6f6152';
+  f.beginPath(); f.ellipse(px, py, 105, 20, 0, Math.PI, Math.PI * 2); f.stroke();
+  for (const [dx, dy, r, col] of [[0, 0, pr, '#6e3a1c'], [-5, -4.5, pr - 9, '#a65d2e'], [-10, -10, pr - 20, '#d38a4b']]) {
+    f.fillStyle = col;
+    f.beginPath(); f.arc(px + dx, py + dy, r, 0, Math.PI * 2); f.fill();
+  }
+  f.strokeStyle = '#b8a48e';
+  f.beginPath(); f.ellipse(px, py, 105, 20, 0, 0, Math.PI); f.stroke();
+  // luna y planeta lejano
+  for (const [x, y, r, col] of [[62, 432, 22, '#4a4a4a'], [58.5, 428.5, 15.5, '#9e9e9e'], [56, 428, 4, '#757575'],
+    [334, 74, 14, '#006978'], [332, 72, 10, '#4dd0e1']]) {
+    f.fillStyle = col;
+    f.beginPath(); f.arc(x, y, r, 0, Math.PI * 2); f.fill();
+  }
+  // asteroides decorativos
+  f.fillStyle = '#5d5650';
+  for (let k = 0; k < 9; k++) {
+    const ax = 120 + ((k * 137) % 340), ay = 330 + ((k * 53) % 100), ar = 3 + (k % 5);
+    f.beginPath(); f.ellipse(ax, ay, ar, ar * 0.8, 0, 0, Math.PI * 2); f.fill();
+  }
+})();
+
+// en pantallas chicas el dibujo se reduce mucho: el texto se agranda para que siga legible
+function aumento() {
+  return Math.max(1, 0.7 * ANCHO / Math.max(1, lienzo.clientWidth));
+}
+
+function texto(txt, x, y, tam, tinta, { negrita = false, alinear = 'center' } = {}) {
+  g.font = `${negrita ? 'bold ' : ''}${Math.round(tam * aumento())}px ${LETRA}`;
+  g.fillStyle = tinta;
+  g.textAlign = alinear;
+  g.textBaseline = 'middle';
+  g.fillText(txt, x, y);
+}
+
+// barra de vida de la nave i: un segmento por punto de vida
+function barra(x, y, i) {
+  const paso = Math.min(14, (ANCHO - 260) / j.vidaMax[i]);
+  for (let k = 0; k < j.vidaMax[i]; k++) {
+    g.fillStyle = k < j.vida[i] ? COLOR[i] : '#2a2a3a';
+    g.fillRect(x + k * paso, y, paso - 3, 10);
+  }
+}
+
+function dibujar(dt) {
+  g.drawImage(fondo, 0, 0, ANCHO, ALTO);
+  for (const [x, y, v, col] of estrellas) {
+    g.fillStyle = col;
+    g.fillRect(x, y, v, v);
+  }
+  if (j.estado === 'inicio') {
+    texto('DUELO DE NAVES', ANCHO / 2, ALTO / 2 - 70, 40, '#ffffff', { negrita: true });
+    texto('Toca para empezar', ANCHO / 2, ALTO / 2 - 10, 22, '#ffffff');
+    texto(`Modo: ${MODO[j.modo]}`, ANCHO / 2, ALTO / 2 + 30, 15, '#8a8fb0');
+    texto('Arrastra el dedo para mover tu nave', ANCHO / 2, ALTO / 2 + 65, 13, '#8a8fb0');
+    texto('y mantenlo apoyado para disparar', ANCHO / 2, ALTO / 2 + 90, 13, '#8a8fb0');
+    return;
+  }
+  for (const i of j.naves) {
+    if (j.vida[i] <= 0) continue;
+    const x = j.x[i], y = Y_NAVE[BANDO[i]], d = BANDO[i] === 0 ? -1 : 1; // d: hacia dónde mira la nave
+    g.fillStyle = '#ffd54f';
+    g.beginPath();
+    g.moveTo(x - 8, y - d * 14);
+    g.lineTo(x + 8, y - d * 14);
+    g.lineTo(x, y - d * (24 + Math.random() * 8));
+    g.fill();
+    g.fillStyle = COLOR[i];
+    g.strokeStyle = '#ffffff';
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(x, y + d * NAVE_H / 2);
+    g.lineTo(x - NAVE_W / 2, y - d * NAVE_H / 2);
+    g.lineTo(x + NAVE_W / 2, y - d * NAVE_H / 2);
+    g.closePath();
+    g.fill();
+    g.stroke();
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    g.ellipse(x, y, 5, 6, 0, 0, Math.PI * 2);
+    g.fill();
+  }
+  for (const [x, y, , dueno] of j.balas) {
+    g.fillStyle = COLOR_BALA[dueno];
+    g.fillRect(x - 2, y - 7, 4, 14);
+  }
+  for (const [x, y, , , , col] of j.particulas) {
+    g.fillStyle = col;
+    g.fillRect(x - 2, y - 2, 4, 4);
+  }
+
+  // barras de vida y marcador
+  barra(15, 12, 1);
+  barra(15, ALTO - 22, 0);
+  if (j.modo === EQUIPO) barra(15 + (VIDA + 1) * 14, ALTO - 22, 2);
+  const [n1, n2] = NOMBRES[j.modo];
+  texto(`${n2}  [${j.victorias[1]}]`, ANCHO - 15, 17, 11, COLOR[1], { alinear: 'right' });
+  texto(`${n1}  [${j.victorias[0]}]`, ANCHO - 15, ALTO - 17, 11, COLOR[0], { alinear: 'right' });
+  const modo = MODO[j.modo] + (j.modo === DUELO ? '' : ` - ${DIFICULTAD[j.nivel][0]}`);
+  texto(modo, ANCHO / 2, ALTO / 2, 12, '#8a8fb0');
+
+  // al empezar, cómo se reparte la pantalla entre los dedos
+  j.tAyuda -= dt;
+  if (j.tAyuda > 0 && !j.fin) {
+    g.globalAlpha = Math.min(1, j.tAyuda);
+    g.setLineDash([8, 8]);
+    g.strokeStyle = '#ffffff44';
+    g.beginPath();
+    if (j.modo === DUELO) { g.moveTo(0, ALTO / 2); g.lineTo(ANCHO, ALTO / 2); }
+    if (j.modo === EQUIPO) { g.moveTo(ANCHO / 2, ALTO / 2); g.lineTo(ANCHO / 2, ALTO); g.moveTo(0, ALTO / 2); g.lineTo(ANCHO, ALTO / 2); }
+    g.stroke();
+    g.setLineDash([]);
+    if (j.modo === UNO) {
+      texto('Arrastra para mover', ANCHO / 2, ALTO * 0.68, 14, '#ffffffcc');
+      texto('mantén el dedo para disparar', ANCHO / 2, ALTO * 0.68 + 26 * aumento(), 14, '#ffffffcc');
+    } else if (j.modo === EQUIPO) {
+      texto('JUGADOR 1: arrastra aquí', ANCHO / 4, ALTO * 0.72, 14, COLOR[0]);
+      texto('JUGADOR 2: arrastra aquí', ANCHO * 3 / 4, ALTO * 0.72, 14, COLOR[2]);
+    } else {
+      texto('JUGADOR 1: arrastra aquí', ANCHO / 2, ALTO * 0.72, 15, COLOR[0]);
+      g.save(); // el jugador 2 está del otro lado de la tablet: su texto va al revés
+      g.translate(ANCHO / 2, ALTO * 0.28);
+      g.rotate(Math.PI);
+      texto('JUGADOR 2: arrastra aquí', 0, 0, 15, COLOR[1]);
+      g.restore();
+    }
+    g.globalAlpha = 1;
+  }
+
+  if (j.fin) {
+    const [titulo, tinta] = j.ganador === null ? ['EMPATE', '#ffd54f']
+      : [FINAL[j.modo][j.ganador], ['#a5d6a7', '#ef9a9a'][j.ganador]];
+    g.fillStyle = 'rgba(5, 6, 15, 0.6)';
+    g.fillRect(0, ALTO / 2 - 110, ANCHO, 90);
+    texto(titulo, ANCHO / 2, ALTO / 2 - 78, 34, tinta, { negrita: true });
+    texto('Toca para jugar de nuevo', ANCHO / 2, ALTO / 2 - 40, 14, '#ffffff');
+  } else if (j.pausa) {
+    texto('PAUSA', ANCHO / 2, ALTO / 2 - 60, 34, '#ffffff', { negrita: true });
+  }
+}
+
+bucle((dt) => { paso(dt); dibujar(dt); });
+window.juego = { j, reiniciar, dedos, teclas, Sonido };
+</script>
+</body>
+</html>

@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#101820">
+<title>Pong</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body class="juego apaisado">
+<header class="barra">
+  <a href="index.html" aria-label="Volver al menú">⌂</a>
+  <h1>Pong</h1>
+  <button id="b-modo">1 jugador</button>
+  <button id="b-nivel">Media</button>
+  <button id="b-sonido" aria-label="Sonido">🔊</button>
+  <button id="b-pausa" aria-label="Pausa">⏸</button>
+  <button id="b-reiniciar" aria-label="Reiniciar">↻</button>
+</header>
+<div class="zona"><canvas id="lienzo"></canvas></div>
+<p class="girar">Gira el teléfono para ver la cancha más grande.</p>
+<p class="ayuda">Jugador 1: W / S (o flechas en modo 1 jugador) · Jugador 2: flechas · 1 / 2 / 3 dificultad · J cambiar jugadores · Espacio pausa · R reiniciar · M sonido</p>
+
+<script src="comun.js"></script>
+<script>
+'use strict';
+const ANCHO = 800, ALTO = 500, PALETA_W = 12, PALETA_H = 90, BOLA = 14, META = 7, VEL_USUARIO = 8;
+const VEL_DEDO = 16; // la paleta sigue al dedo con esta velocidad máxima por paso
+// dificultad: nombre, velocidad máxima de la IA, error de puntería en px
+const DIFICULTAD = { 1: ['Fácil', 3.5, 45], 2: ['Media', 5.5, 25], 3: ['Difícil', 7.5, 8] };
+const AZUL = '#4fc3f7', NARANJA = '#ff7043', LETRA = 'ui-monospace, Consolas, "Courier New", monospace';
+
+Sonido.definir('paleta', (s) => { const p = []; s.tono(p, 0, 0.05, 520, 640, 0.3); return p; });
+Sonido.definir('pared', (s) => { const p = []; s.tono(p, 0, 0.04, 300, null, 0.2, 'triangular'); return p; });
+Sonido.definir('punto', (s) => { const p = []; s.tono(p, 0, 0.25, 500, 180, 0.25); return p; });
+Sonido.definir('gana', (s) => {
+  const p = []; s.melodia(p, [[72, 1], [76, 1], [79, 1], [84, 4]], 0.1, 0.25, 'cuadrada'); return p;
+});
+Sonido.definir('pierde', (s) => {
+  const p = []; s.melodia(p, [[72, 2], [67, 2], [64, 2], [60, 4]], 0.14, 0.3, 'triangular'); return p;
+});
+
+const p = { estado: 'inicio', dos: Guardado.leer('pong_dos', false), nivel: Guardado.leer('pong_nivel', 2) };
+const teclas = new Set();
+const objetivo = { izq: null, der: null };  // altura a la que apunta el dedo de cada lado
+const dedos = new Map();                     // id del dedo -> lado que controla
+
+function reiniciar() {
+  p.yIzq = p.yDer = (ALTO - PALETA_H) / 2;
+  p.pIzq = p.pDer = 0;
+  p.pausa = false;
+  p.fin = false;
+  p.tAyuda = 3;
+  sacar(Math.random() < 0.5 ? -1 : 1);
+}
+
+function sacar(direccion) {
+  p.bx = ANCHO / 2;
+  p.by = ALTO / 2;
+  p.vx = 5 * direccion;
+  p.vy = (Math.random() < 0.5 ? -1 : 1) * (2 + Math.random() * 2);
+  p.objetivoIA = ALTO / 2;
+  p.espera = 40; // pasos de pausa antes de mover la bola
+}
+
+function moverHumano(lado, arriba, abajo) {
+  const clave = lado === 'izq' ? 'yIzq' : 'yDer';
+  if (arriba.some((k) => teclas.has(k))) p[clave] -= VEL_USUARIO;
+  if (abajo.some((k) => teclas.has(k))) p[clave] += VEL_USUARIO;
+  if (objetivo[lado] !== null) {
+    const dif = objetivo[lado] - PALETA_H / 2 - p[clave];
+    p[clave] += Math.max(-VEL_DEDO, Math.min(VEL_DEDO, dif));
+  }
+  p[clave] = Math.max(0, Math.min(ALTO - PALETA_H, p[clave]));
+}
+
+function moverIA() {
+  const [, vmax, error] = DIFICULTAD[p.nivel];
+  // solo reacciona cuando la bola viene hacia ella; si no, vuelve al centro
+  if (p.vx > 0) {
+    if (Math.random() < 0.05) p.objetivoIA = p.by + (Math.random() * 2 - 1) * error;
+  } else {
+    p.objetivoIA = ALTO / 2;
+  }
+  const dif = p.objetivoIA - (p.yDer + PALETA_H / 2);
+  if (Math.abs(dif) > 4) p.yDer += Math.max(-vmax, Math.min(vmax, dif));
+  p.yDer = Math.max(0, Math.min(ALTO - PALETA_H, p.yDer));
+}
+
+function moverBola() {
+  if (p.espera > 0) { p.espera--; return; }
+  p.bx += p.vx;
+  p.by += p.vy;
+  if (p.by <= 0 || p.by + BOLA >= ALTO) {
+    p.vy = -p.vy;
+    p.by = Math.max(0, Math.min(ALTO - BOLA, p.by));
+    Sonido.tocar('pared');
+  }
+  if (p.vx < 0 && p.bx >= 20 && p.bx <= 20 + PALETA_W && p.by >= p.yIzq - BOLA && p.by <= p.yIzq + PALETA_H) {
+    rebote(p.yIzq, 20 + PALETA_W, 1);
+  }
+  const xd = ANCHO - 20 - PALETA_W;
+  if (p.vx > 0 && p.bx >= xd - BOLA && p.bx <= xd && p.by >= p.yDer - BOLA && p.by <= p.yDer + PALETA_H) {
+    rebote(p.yDer, xd - BOLA, -1);
+  }
+  if (p.bx < -BOLA) { p.pDer++; punto(-1); }
+  else if (p.bx > ANCHO) { p.pIzq++; punto(1); }
+}
+
+// el punto de impacto en la paleta define el ángulo
+function rebote(yPaleta, xNueva, signo) {
+  p.bx = xNueva;
+  const rel = Math.max(-1, Math.min(1, (p.by + BOLA / 2 - (yPaleta + PALETA_H / 2)) / (PALETA_H / 2)));
+  p.vx = signo * Math.min(Math.abs(p.vx) * 1.06, 13);
+  p.vy = rel * 6;
+  Sonido.tocar('paleta');
+}
+
+function punto(direccion) {
+  if (p.pIzq >= META || p.pDer >= META) {
+    p.fin = true;
+    Sonido.tocar(!p.dos && p.pDer > p.pIzq ? 'pierde' : 'gana');
+  } else {
+    Sonido.tocar('punto');
+    sacar(direccion);
+  }
+}
+
+const paso = pasosFijos(() => {
+  if (p.estado !== 'jugando' || p.pausa || p.fin) return;
+  if (p.dos) {
+    moverHumano('izq', ['w'], ['s']);
+    moverHumano('der', ['arrowup'], ['arrowdown']);
+  } else {
+    moverHumano('izq', ['w', 'arrowup'], ['s', 'arrowdown']);
+    moverIA();
+  }
+  moverBola();
+});
+
+// --- controles ---
+const $ = (id) => document.getElementById(id);
+function empezar() {
+  Sonido.iniciar();
+  if (p.estado === 'inicio') { p.estado = 'jugando'; reiniciar(); }
+}
+function alternarPausa() {
+  if (p.estado !== 'jugando' || p.fin) return;
+  p.pausa = !p.pausa;
+}
+function cambiarModo() {
+  p.dos = !p.dos;
+  Guardado.escribir('pong_dos', p.dos);
+  actualizarBotones();
+  if (p.estado === 'jugando') reiniciar();
+}
+function cambiarNivel(n) {
+  p.nivel = n || (p.nivel % 3) + 1;
+  Guardado.escribir('pong_nivel', p.nivel);
+  actualizarBotones();
+}
+function alternarSonido() {
+  Sonido.iniciar();
+  Sonido.alternar();
+  actualizarBotones();
+}
+function actualizarBotones() {
+  $('b-modo').textContent = p.dos ? '2 jugadores' : '1 jugador';
+  $('b-nivel').textContent = DIFICULTAD[p.nivel][0];
+  $('b-nivel').style.display = p.dos ? 'none' : '';
+  $('b-sonido').textContent = Sonido.activo ? '🔊' : '🔇';
+}
+$('b-modo').addEventListener('click', () => { Sonido.iniciar(); cambiarModo(); });
+$('b-nivel').addEventListener('click', () => { Sonido.iniciar(); cambiarNivel(); });
+$('b-sonido').addEventListener('click', alternarSonido);
+$('b-pausa').addEventListener('click', () => { Sonido.iniciar(); alternarPausa(); });
+$('b-reiniciar').addEventListener('click', () => { Sonido.iniciar(); p.estado = 'jugando'; reiniciar(); });
+actualizarBotones();
+
+addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (['arrowup', 'arrowdown', ' '].includes(k)) e.preventDefault();
+  teclas.add(k);
+  if (e.repeat) return;
+  if (p.estado === 'inicio') { empezar(); return; }
+  if (k === ' ') alternarPausa();
+  else if (k === 'r') { reiniciar(); }
+  else if (k === 'm') alternarSonido();
+  else if (k === 'j') cambiarModo();
+  else if (['1', '2', '3'].includes(k)) cambiarNivel(Number(k));
+});
+addEventListener('keyup', (e) => teclas.delete(e.key.toLowerCase()));
+addEventListener('blur', () => teclas.clear());
+
+// dedos: en 1 jugador cualquier dedo mueve tu paleta; en 2 jugadores cada mitad mueve la suya
+// se escucha toda la zona del juego, no solo el dibujo, para que el dedo no tape la paleta
+const lienzo = $('lienzo');
+const tactil = lienzo.parentElement;
+const pantalla = prepararLienzo(lienzo, ANCHO, ALTO);
+const g = pantalla.g;
+tactil.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  if (p.estado === 'inicio') { empezar(); return; }
+  if (p.fin) { reiniciar(); return; }
+  if (p.pausa) { alternarPausa(); return; }
+  const pos = pantalla.aJuego(e);
+  const lado = p.dos && pos.x > ANCHO / 2 ? 'der' : 'izq';
+  dedos.set(e.pointerId, lado);
+  objetivo[lado] = pos.y;
+  try { tactil.setPointerCapture(e.pointerId); } catch { /* sin captura */ }
+});
+tactil.addEventListener('pointermove', (e) => {
+  const lado = dedos.get(e.pointerId);
+  if (lado) objetivo[lado] = pantalla.aJuego(e).y;
+});
+const soltarDedo = (e) => {
+  const lado = dedos.get(e.pointerId);
+  dedos.delete(e.pointerId);
+  if (lado && ![...dedos.values()].includes(lado)) objetivo[lado] = null;
+};
+tactil.addEventListener('pointerup', soltarDedo);
+tactil.addEventListener('pointercancel', soltarDedo);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && p.estado === 'jugando' && !p.fin) p.pausa = true;
+});
+
+// --- dibujo ---
+// en pantallas chicas el dibujo se reduce mucho: el texto se agranda para que siga legible
+function texto(txt, x, y, tam, tinta, negrita = false) {
+  const aumento = Math.max(1, 0.7 * ANCHO / Math.max(1, lienzo.clientWidth));
+  g.font = `${negrita ? 'bold ' : ''}${Math.round(tam * aumento)}px ${LETRA}`;
+  g.fillStyle = tinta;
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(txt, x, y);
+}
+
+function dibujar(dt) {
+  g.fillStyle = '#101820';
+  g.fillRect(0, 0, ANCHO, ALTO);
+  g.fillStyle = '#2a3a4a';
+  for (let y = 0; y < ALTO; y += 30) g.fillRect(ANCHO / 2 - 2, y, 4, 16);
+  if (p.estado === 'inicio') {
+    texto('PONG', ANCHO / 2, ALTO / 2 - 60, 60, '#ffffff', true);
+    texto('Toca para empezar', ANCHO / 2, ALTO / 2 + 10, 22, '#ffffff');
+    texto(p.dos ? 'Cada jugador arrastra el dedo en su mitad' : 'Arrastra el dedo arriba y abajo',
+      ANCHO / 2, ALTO / 2 + 50, 15, '#8899aa');
+    return;
+  }
+  g.fillStyle = AZUL;
+  g.fillRect(20, p.yIzq, PALETA_W, PALETA_H);
+  g.fillStyle = NARANJA;
+  g.fillRect(ANCHO - 20 - PALETA_W, p.yDer, PALETA_W, PALETA_H);
+  g.fillStyle = '#ffffff';
+  g.beginPath();
+  g.arc(p.bx + BOLA / 2, p.by + BOLA / 2, BOLA / 2, 0, Math.PI * 2);
+  g.fill();
+  texto(String(p.pIzq), ANCHO / 2 - 60, 40, 36, AZUL, true);
+  texto(String(p.pDer), ANCHO / 2 + 60, 40, 36, NARANJA, true);
+  texto(p.dos ? 'JUGADOR 1' : 'TÚ', 90, ALTO - 15, 12, AZUL);
+  texto(p.dos ? 'JUGADOR 2' : 'COMPUTADOR', ANCHO - 90, ALTO - 15, 12, NARANJA);
+  if (!p.dos) texto(`Dificultad: ${DIFICULTAD[p.nivel][0]}`, ANCHO / 2, ALTO - 15, 11, '#8899aa');
+
+  p.tAyuda -= dt;
+  if (p.tAyuda > 0 && p.dos && !p.fin) {
+    texto('← arrastra aquí', ANCHO / 4, ALTO / 2, 16, '#4fc3f799');
+    texto('arrastra aquí →', ANCHO * 3 / 4, ALTO / 2, 16, '#ff704399');
+  }
+  if (p.fin) {
+    const gano = p.pIzq > p.pDer;
+    const titulo = p.dos ? (gano ? '¡GANA JUGADOR 1!' : '¡GANA JUGADOR 2!') : (gano ? '¡GANASTE!' : 'GANÓ EL COMPUTADOR');
+    g.fillStyle = 'rgba(5, 10, 16, 0.6)';
+    g.fillRect(0, ALTO / 2 - 60, ANCHO, 120);
+    texto(titulo, ANCHO / 2, ALTO / 2 - 15, 36, gano || p.dos ? '#a5d6a7' : '#ef9a9a', true);
+    texto('Toca para jugar de nuevo', ANCHO / 2, ALTO / 2 + 30, 16, '#ffffff');
+  } else if (p.pausa) {
+    texto('PAUSA', ANCHO / 2, ALTO / 2, 36, '#ffffff', true);
+  }
+}
+
+bucle((dt) => { paso(dt); dibujar(dt); });
+window.juego = { p, reiniciar, objetivo, teclas, Sonido };
+</script>
+</body>
+</html>

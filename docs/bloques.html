@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#101624">
+<title>Bloques</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body class="juego">
+<header class="barra">
+  <a href="index.html" aria-label="Volver al menú">⌂</a>
+  <h1>Bloques</h1>
+  <button id="b-sonido" aria-label="Sonido">🔊</button>
+  <button id="b-pausa" aria-label="Pausa">⏸</button>
+  <button id="b-reiniciar" aria-label="Reiniciar">↻</button>
+</header>
+<div class="zona"><canvas id="lienzo"></canvas></div>
+<div class="controles izq">
+  <button id="t-izq" aria-label="Mover a la izquierda">◀</button>
+  <button id="t-bajar" aria-label="Bajar">▼</button>
+  <button id="t-der" aria-label="Mover a la derecha">▶</button>
+</div>
+<div class="controles der">
+  <button id="t-guardar" aria-label="Guardar pieza">⇄<small>guardar</small></button>
+  <button id="t-girar" aria-label="Girar">⟳</button>
+  <button id="t-soltar" aria-label="Soltar de golpe">⤓</button>
+</div>
+<p class="ayuda">← → mover · ↓ bajar · ↑ o X girar · Z girar al revés · Espacio soltar · C guardar · M sonido · P pausa · R reiniciar</p>
+
+<script src="comun.js"></script>
+<script>
+'use strict';
+const COL = 10, FIL = 20, OC = 2, CEL = 30;      // OC: filas ocultas sobre el tablero, donde nacen las piezas
+const ANCHO = 450, ALTO = 620, BX = 10, BY = 10;  // tamaño del dibujo y esquina del tablero
+const RETARDO_REPETIR = 0.17, INTERVALO_REPETIR = 0.05;
+const RETARDO_FIJAR = 0.5, MAX_AJUSTES = 15, T_LIMPIAR = 0.3;
+const PUNTOS_LINEAS = { 1: 100, 2: 300, 3: 500, 4: 800 };
+const AVISOS = { 2: '¡DOBLE!', 3: '¡TRIPLE!', 4: '¡CUATRO LÍNEAS!' };
+const PIEZAS = {
+  I: [['....', 'XXXX', '....', '....'], '#4dd0e1'],
+  O: [['XX', 'XX'], '#ffd54f'],
+  T: [['.X.', 'XXX', '...'], '#ba68c8'],
+  S: [['.XX', 'XX.', '...'], '#81c784'],
+  Z: [['XX.', '.XX', '...'], '#e57373'],
+  J: [['X..', 'XXX', '...'], '#64b5f6'],
+  L: [['..X', 'XXX', '...'], '#ffb74d'],
+};
+// desplazamientos que se prueban si la pieza no cabe al girar (contra paredes y piso)
+const EMPUJES = [[0, 0], [-1, 0], [1, 0], [0, -1], [-2, 0], [2, 0]];
+const FONDO = '#101624', TABLERO = '#0b0f1a', REJILLA = '#1a2235', TEXTO = '#e8ecf4', TENUE = '#7d88a6';
+const LETRA = 'ui-monospace, Consolas, "Courier New", monospace';
+
+// --- sonido: los mismos efectos y la misma música propia que la versión de Python ---
+const PASO = 0.2;
+const MELODIA = [[69, 1], [72, 1], [76, 1], [81, 1], [79, 2], [76, 2],
+  [77, 1], [76, 1], [74, 1], [72, 1], [74, 2], [69, 2],
+  [71, 1], [74, 1], [79, 1], [74, 1], [77, 2], [76, 2],
+  [76, 2], [71, 1], [68, 1], [71, 4],
+  [81, 1], [79, 1], [76, 1], [72, 1], [74, 1], [76, 1], [72, 2],
+  [77, 1], [81, 1], [77, 1], [74, 1], [72, 2], [74, 2],
+  [76, 1], [80, 1], [83, 1], [80, 1], [76, 2], [74, 2],
+  [72, 2], [71, 2], [69, 4]];
+const BAJO = [45, 45, 41, 41, 43, 43, 40, 40, 45, 45, 38, 38, 40, 40, 45, 45]
+  .flatMap((r) => [[r, 1], [r + 12, 1], [r + 7, 1], [r + 12, 1]]);
+Sonido.definir('mover', (s) => { const p = []; s.tono(p, 0, 0.03, 900, null, 0.12); return p; });
+Sonido.definir('girar', (s) => { const p = []; s.tono(p, 0, 0.06, 600, 1100, 0.15); return p; });
+Sonido.definir('fijar', (s) => { const p = []; s.tono(p, 0, 0.08, 160, 90, 0.35, 'triangular'); return p; });
+Sonido.definir('soltar', (s) => {
+  const p = []; s.tono(p, 0, 0.12, 700, 120, 0.25); s.tono(p, 0, 0.06, 0, null, 0.15, 'ruido'); return p;
+});
+Sonido.definir('linea', (s) => { const p = []; s.melodia(p, [[76, 1], [81, 1], [88, 3]], 0.06, 0.25, 'cuadrada'); return p; });
+Sonido.definir('cuatro', (s) => {
+  const p = [];
+  s.melodia(p, [[72, 1], [76, 1], [79, 1], [84, 1], [88, 1], [91, 1], [96, 5]], 0.07, 0.25, 'cuadrada');
+  s.melodia(p, [[48, 3], [55, 3], [60, 5]], 0.07, 0.3, 'triangular');
+  return p;
+});
+Sonido.definir('nivel', (s) => {
+  const p = []; s.melodia(p, [[79, 1], [84, 1], [79, 1], [84, 1], [91, 4]], 0.08, 0.25, 'triangular'); return p;
+});
+Sonido.definir('fin', (s) => {
+  const p = []; s.melodia(p, [[76, 2], [72, 2], [69, 2], [64, 2], [57, 6]], 0.15, 0.35, 'triangular'); return p;
+});
+Sonido.definir('musica', (s) => {
+  const p = [];
+  s.melodia(p, MELODIA, PASO, 0.13, 'cuadrada');
+  s.melodia(p, BAJO, PASO, 0.28, 'triangular');
+  return s.recortar(p, 64 * PASO);
+});
+
+// --- colores con relieve ---
+function mezclar(hexa, otro, t) {
+  const a = [1, 3, 5].map((i) => parseInt(hexa.slice(i, i + 2), 16));
+  const b = [1, 3, 5].map((i) => parseInt(otro.slice(i, i + 2), 16));
+  return '#' + a.map((v, i) => Math.round(v + (b[i] - v) * t).toString(16).padStart(2, '0')).join('');
+}
+const TONOS = {};
+for (const [tipo, [, base]] of Object.entries(PIEZAS)) {
+  TONOS[tipo] = { base, claro: mezclar(base, '#ffffff', 0.45), oscuro: mezclar(base, '#000000', 0.4),
+    sombra: mezclar(base, '#000000', 0.55), borde: mezclar(base, '#000000', 0.1) };
+}
+
+// --- estado y reglas (igual que bloques.py) ---
+const j = { estado: 'inicio', record: Guardado.leer('bloques_record', 0) };
+
+function sacar() {
+  if (!j.bolsa.length) {
+    j.bolsa = Object.keys(PIEZAS);
+    for (let i = j.bolsa.length - 1; i > 0; i--) {
+      const k = Math.floor(Math.random() * (i + 1));
+      [j.bolsa[i], j.bolsa[k]] = [j.bolsa[k], j.bolsa[i]];
+    }
+  }
+  return j.bolsa.pop();
+}
+
+function celdasDe(tipo) {
+  const c = [];
+  PIEZAS[tipo][0].forEach((fila, y) => [...fila].forEach((ch, x) => { if (ch === 'X') c.push([x, y]); }));
+  return c;
+}
+
+function reiniciar(estado = 'jugando') {
+  j.tablero = Array.from({ length: FIL + OC }, () => Array(COL).fill(null));
+  j.bolsa = [];
+  j.cola = [sacar(), sacar(), sacar()];
+  j.guardada = null;
+  j.puedeGuardar = true;
+  j.puntos = j.lineas = 0;
+  j.nivel = 1;
+  j.estado = estado;
+  j.pausa = false;
+  j.llenas = [];
+  j.tLimpiar = 0;
+  j.aviso = '';
+  j.tAviso = 0;
+  j.direccion = 0;
+  j.tRepetir = 0;
+  j.bajando = false;
+  nuevaPieza();
+  if (estado === 'jugando') {
+    Sonido.reanudar();
+    Sonido.musica('musica');
+  }
+}
+
+function nuevaPieza(tipo = null) {
+  if (tipo === null) {
+    tipo = j.cola.shift();
+    j.cola.push(sacar());
+  }
+  j.tipo = tipo;
+  j.n = PIEZAS[tipo][0].length;
+  j.celdas = celdasDe(tipo);
+  // nace asomando por la primera fila visible
+  j.px = Math.floor((COL - j.n) / 2);
+  j.py = OC - Math.max(...j.celdas.map(([, y]) => y));
+  j.tCaida = j.tFijar = 0;
+  j.ajustes = 0;
+  if (!cabe(j.celdas, j.px, j.py)) terminar();
+}
+
+function terminar() {
+  j.estado = 'fin';
+  Sonido.pararMusica();
+  Sonido.tocar('fin');
+  j.nuevoRecord = j.puntos > j.record;
+  if (j.nuevoRecord) {
+    j.record = j.puntos;
+    Guardado.escribir('bloques_record', j.record);
+  }
+}
+
+function cabe(celdas, px, py) {
+  for (const [x, y] of celdas) {
+    const cx = px + x, cy = py + y;
+    if (cx < 0 || cx >= COL || cy >= FIL + OC || (cy >= 0 && j.tablero[cy][cx])) return false;
+  }
+  return true;
+}
+
+function apoyada() { return !cabe(j.celdas, j.px, j.py + 1); }
+
+// mover o girar una pieza que ya toca fondo le da un poco más de tiempo, con límite
+function reajustar() {
+  if (apoyada() && j.ajustes < MAX_AJUSTES) {
+    j.tFijar = 0;
+    j.ajustes++;
+  }
+}
+
+function mover(dx) {
+  if (cabe(j.celdas, j.px + dx, j.py)) {
+    j.px += dx;
+    reajustar();
+    Sonido.tocar('mover');
+    return true;
+  }
+  return false;
+}
+
+function girar(sentido) {
+  if (j.tipo === 'O') return;
+  const n = j.n;
+  const nuevas = j.celdas.map(([x, y]) => (sentido > 0 ? [n - 1 - y, x] : [y, n - 1 - x]));
+  for (const [dx, dy] of EMPUJES) {
+    if (cabe(nuevas, j.px + dx, j.py + dy)) {
+      j.celdas = nuevas;
+      j.px += dx;
+      j.py += dy;
+      reajustar();
+      Sonido.tocar('girar');
+      return;
+    }
+  }
+}
+
+function caidaFantasma() {
+  let y = j.py;
+  while (cabe(j.celdas, j.px, y + 1)) y++;
+  return y;
+}
+
+function soltar() {
+  const destino = caidaFantasma();
+  j.puntos += 2 * (destino - j.py);
+  j.py = destino;
+  Sonido.tocar('soltar');
+  fijar();
+}
+
+function guardar() {
+  if (!j.puedeGuardar) return;
+  j.puedeGuardar = false; // solo una vez por pieza
+  const anterior = j.guardada;
+  j.guardada = j.tipo;
+  nuevaPieza(anterior);
+  Sonido.tocar('girar');
+}
+
+function fijar() {
+  for (const [x, y] of j.celdas) j.tablero[j.py + y][j.px + x] = j.tipo;
+  j.puedeGuardar = true;
+  if (j.celdas.every(([, y]) => j.py + y < OC)) { // quedó entera por encima del tablero
+    terminar();
+    return;
+  }
+  j.llenas = [];
+  j.tablero.forEach((fila, f) => { if (fila.every(Boolean)) j.llenas.push(f); });
+  if (!j.llenas.length) {
+    Sonido.tocar('fijar');
+    nuevaPieza();
+    return;
+  }
+  const n = j.llenas.length;
+  j.puntos += PUNTOS_LINEAS[n] * j.nivel;
+  j.lineas += n;
+  Sonido.tocar(n === 4 ? 'cuatro' : 'linea');
+  if (AVISOS[n]) { j.aviso = AVISOS[n]; j.tAviso = 1.5; }
+  if (1 + Math.floor(j.lineas / 10) > j.nivel) {
+    j.nivel = 1 + Math.floor(j.lineas / 10);
+    j.aviso = 'NIVEL ' + j.nivel;
+    j.tAviso = 1.5;
+    Sonido.tocar('nivel');
+  }
+  j.estado = 'limpiando';
+  j.tLimpiar = T_LIMPIAR;
+}
+
+function quitarFilas() {
+  const restantes = j.tablero.filter((_, f) => !j.llenas.includes(f));
+  j.tablero = j.llenas.map(() => Array(COL).fill(null)).concat(restantes);
+  j.llenas = [];
+  j.estado = 'jugando';
+  nuevaPieza();
+}
+
+// segundos que tarda la pieza en bajar una fila: cada nivel es más rápido
+function intervalo() {
+  return Math.max(0.03, (0.8 - (j.nivel - 1) * 0.007) ** (j.nivel - 1));
+}
+
+function actualizar(dt) {
+  if (j.pausa || j.estado === 'fin' || j.estado === 'inicio') return;
+  j.tAviso -= dt;
+  if (j.estado === 'limpiando') {
+    j.tLimpiar -= dt;
+    if (j.tLimpiar <= 0) quitarFilas();
+    return;
+  }
+  // al mantener izquierda o derecha la pieza sigue moviéndose tras una breve espera
+  if (j.direccion) {
+    j.tRepetir += dt;
+    while (j.tRepetir >= INTERVALO_REPETIR) {
+      j.tRepetir -= INTERVALO_REPETIR;
+      if (!mover(j.direccion)) { j.tRepetir = 0; break; }
+    }
+  }
+  const paso = j.bajando ? Math.min(intervalo(), 0.035) : intervalo();
+  if (apoyada()) {
+    j.tCaida = 0;
+    j.tFijar += dt;
+    if (j.tFijar >= RETARDO_FIJAR) fijar();
+    return;
+  }
+  j.tFijar = 0;
+  j.tCaida += dt;
+  while (j.tCaida >= paso && !apoyada()) {
+    j.tCaida -= paso;
+    j.py++;
+    if (j.bajando) j.puntos++;
+  }
+}
+
+// --- acciones comunes al teclado y a los botones ---
+function jugando() { return j.estado === 'jugando' && !j.pausa; }
+function empezar() {
+  Sonido.iniciar();
+  if (j.estado === 'inicio') reiniciar();
+}
+function empezarMover(d) {
+  if (!jugando()) return;
+  j.direccion = d;
+  j.tRepetir = -RETARDO_REPETIR;
+  mover(d);
+}
+function pararMover(d) { if (j.direccion === d) j.direccion = 0; }
+function alternarPausa() {
+  if (j.estado === 'fin' || j.estado === 'inicio') return;
+  j.pausa = !j.pausa;
+  j.direccion = 0;
+  j.bajando = false;
+  if (j.pausa) Sonido.pausar(); else Sonido.reanudar();
+}
+function alternarSonido() {
+  Sonido.iniciar();
+  Sonido.alternar();
+  document.getElementById('b-sonido').textContent = Sonido.activo ? '🔊' : '🔇';
+}
+
+// teclado
+addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (['arrowleft', 'arrowright', 'arrowdown', 'arrowup', ' '].includes(k)) e.preventDefault();
+  if (e.repeat) return;
+  if (j.estado === 'inicio') { empezar(); return; }
+  if (k === 'r') { Sonido.iniciar(); reiniciar(); return; }
+  if (k === 'm') { alternarSonido(); return; }
+  if (k === 'p') { alternarPausa(); return; }
+  if (!jugando()) return;
+  if (k === 'arrowleft') empezarMover(-1);
+  else if (k === 'arrowright') empezarMover(1);
+  else if (k === 'arrowdown') j.bajando = true;
+  else if (k === 'arrowup' || k === 'x') girar(1);
+  else if (k === 'z') girar(-1);
+  else if (k === ' ') soltar();
+  else if (k === 'c') guardar();
+});
+addEventListener('keyup', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === 'arrowdown') j.bajando = false;
+  else if (k === 'arrowleft') pararMover(-1);
+  else if (k === 'arrowright') pararMover(1);
+});
+
+// botones táctiles
+const $ = (id) => document.getElementById(id);
+botonMantener($('t-izq'), () => { empezar(); empezarMover(-1); }, () => pararMover(-1));
+botonMantener($('t-der'), () => { empezar(); empezarMover(1); }, () => pararMover(1));
+botonMantener($('t-bajar'), () => { empezar(); if (jugando()) j.bajando = true; }, () => { j.bajando = false; });
+botonMantener($('t-girar'), () => { empezar(); if (jugando()) girar(1); });
+botonMantener($('t-soltar'), () => { empezar(); if (jugando()) soltar(); });
+botonMantener($('t-guardar'), () => { empezar(); if (jugando()) guardar(); });
+$('b-pausa').addEventListener('click', () => { Sonido.iniciar(); alternarPausa(); });
+$('b-reiniciar').addEventListener('click', () => { Sonido.iniciar(); reiniciar(); });
+$('b-sonido').addEventListener('click', alternarSonido);
+$('b-sonido').textContent = Sonido.activo ? '🔊' : '🔇';
+
+// tocar el tablero: empieza, gira la pieza, quita la pausa o vuelve a jugar al terminar
+const lienzo = $('lienzo');
+const { g } = prepararLienzo(lienzo, ANCHO, ALTO);
+lienzo.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  Sonido.iniciar();
+  if (j.estado === 'inicio') empezar();
+  else if (j.estado === 'fin') reiniciar();
+  else if (j.pausa) alternarPausa();
+  else if (jugando()) girar(1);
+});
+
+// se pausa solo si la persona cambia de aplicación o apaga la pantalla
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && j.estado === 'jugando' && !j.pausa) alternarPausa();
+});
+
+// --- dibujo ---
+function bloque(x, y, tipo, tam = CEL, fantasma = false) {
+  const t = TONOS[tipo];
+  if (fantasma) {
+    g.fillStyle = t.sombra;
+    g.fillRect(x + 1, y + 1, tam - 2, tam - 2);
+    g.strokeStyle = t.borde;
+    g.lineWidth = 2;
+    g.strokeRect(x + 2, y + 2, tam - 4, tam - 4);
+    return;
+  }
+  const b = Math.max(2, Math.floor(tam / 8));
+  g.fillStyle = t.base;
+  g.fillRect(x, y, tam, tam);
+  g.fillStyle = t.claro;
+  g.fillRect(x, y, tam, b);
+  g.fillRect(x, y, b, tam);
+  g.fillStyle = t.oscuro;
+  g.fillRect(x, y + tam - b, tam, b);
+  g.fillRect(x + tam - b, y, b, tam);
+  g.strokeStyle = TABLERO;
+  g.lineWidth = 1;
+  g.strokeRect(x + 0.5, y + 0.5, tam - 1, tam - 1);
+}
+
+function enPantalla(cx, cy) { return [BX + cx * CEL, BY + (cy - OC) * CEL]; }
+
+function texto(txt, x, y, { tam = 14, tinta = TEXTO, negrita = false, alinear = 'left', base = 'alphabetic' } = {}) {
+  g.font = `${negrita ? 'bold ' : ''}${tam}px ${LETRA}`;
+  g.fillStyle = tinta;
+  g.textAlign = alinear;
+  g.textBaseline = base;
+  g.fillText(txt, x, y);
+}
+
+function miniatura(tipo, cx, cy, tam) {
+  const c = celdasDe(tipo);
+  const xs = c.map(([x]) => x), ys = c.map(([, y]) => y);
+  const x0 = Math.min(...xs), y0 = Math.min(...ys);
+  const w = (Math.max(...xs) - x0 + 1) * tam, h = (Math.max(...ys) - y0 + 1) * tam;
+  for (const [x, y] of c) bloque(cx - w / 2 + (x - x0) * tam, cy - h / 2 + (y - y0) * tam, tipo, tam);
+}
+
+function caja(titulo, x, y, w, h) {
+  g.fillStyle = TABLERO;
+  g.beginPath();
+  if (g.roundRect) g.roundRect(x, y, w, h, 6); else g.rect(x, y, w, h); // navegadores viejos no tienen roundRect
+  g.fill();
+  g.strokeStyle = REJILLA;
+  g.lineWidth = 2;
+  g.stroke();
+  texto(titulo, x + 8, y + 17, { tam: 11, tinta: TENUE });
+}
+
+function dibujar() {
+  g.fillStyle = FONDO;
+  g.fillRect(0, 0, ANCHO, ALTO);
+  const ancho = COL * CEL, alto = FIL * CEL;
+  g.fillStyle = TABLERO;
+  g.fillRect(BX, BY, ancho, alto);
+  g.strokeStyle = REJILLA;
+  g.lineWidth = 1;
+  g.beginPath();
+  for (let c = 1; c < COL; c++) { g.moveTo(BX + c * CEL + 0.5, BY); g.lineTo(BX + c * CEL + 0.5, BY + alto); }
+  for (let f = 1; f < FIL; f++) { g.moveTo(BX, BY + f * CEL + 0.5); g.lineTo(BX + ancho, BY + f * CEL + 0.5); }
+  g.stroke();
+
+  g.save();
+  g.beginPath();
+  g.rect(BX, BY, ancho, alto);
+  g.clip();
+  const destello = j.estado === 'limpiando' && Math.floor(j.tLimpiar * 20) % 2 === 0;
+  j.tablero.forEach((fila, cy) => fila.forEach((tipo, cx) => {
+    if (!tipo) return;
+    const [x, y] = enPantalla(cx, cy);
+    if (destello && j.llenas.includes(cy)) {
+      g.fillStyle = '#ffffff';
+      g.fillRect(x, y, CEL, CEL);
+    } else {
+      bloque(x, y, tipo);
+    }
+  }));
+  if (j.estado === 'jugando') {
+    const fy = caidaFantasma();
+    for (const [x, y] of j.celdas) bloque(...enPantalla(j.px + x, fy + y), j.tipo, CEL, true);
+    for (const [x, y] of j.celdas) bloque(...enPantalla(j.px + x, j.py + y), j.tipo);
+  }
+  g.restore();
+  g.strokeStyle = REJILLA;
+  g.lineWidth = 2;
+  g.strokeRect(BX - 1, BY - 1, ancho + 2, alto + 2);
+
+  // panel lateral
+  const x0 = BX + ancho + 12, w = ANCHO - x0 - 8;
+  caja('SIGUIENTES', x0, BY, w, 190);
+  j.cola.forEach((tipo, i) => miniatura(tipo, x0 + w / 2, BY + (i === 0 ? 62 : 122 + (i - 1) * 46), i === 0 ? 18 : 13));
+  caja('GUARDADA', x0, BY + 202, w, 92);
+  if (j.guardada) miniatura(j.guardada, x0 + w / 2, BY + 256, 16);
+  [['PUNTOS', j.puntos], ['RÉCORD', Math.max(j.record, j.puntos)], ['NIVEL', j.nivel], ['LÍNEAS', j.lineas]]
+    .forEach(([nombre, valor], i) => {
+      const y = BY + 322 + i * 54;
+      texto(nombre, x0 + 2, y, { tam: 11, tinta: TENUE });
+      texto(String(valor), x0 + w - 2, y + 24, { tam: 20, negrita: true, alinear: 'right' });
+    });
+
+  const cx = BX + ancho / 2, cy = BY + alto / 2;
+  if (j.tAviso > 0 && j.aviso) {
+    texto(j.aviso, cx, BY + 130, { tam: 30, tinta: '#ffd54f', negrita: true, alinear: 'center' });
+  }
+  if (j.estado !== 'jugando' && j.estado !== 'limpiando' || j.pausa) {
+    g.fillStyle = 'rgba(5, 8, 16, 0.78)';
+    g.fillRect(BX, BY, ancho, alto);
+    if (j.estado === 'inicio') {
+      texto('BLOQUES', cx, cy - 40, { tam: 38, negrita: true, alinear: 'center' });
+      texto('Toca para empezar', cx, cy + 10, { tam: 17, alinear: 'center' });
+      texto('Toca el tablero para girar', cx, cy + 50, { tam: 13, tinta: TENUE, alinear: 'center' });
+    } else if (j.estado === 'fin') {
+      texto('FIN DEL JUEGO', cx, cy - 40, { tam: 32, tinta: '#ef9a9a', negrita: true, alinear: 'center' });
+      texto(`Puntos: ${j.puntos}` + (j.nuevoRecord ? '  ¡RÉCORD!' : ''), cx, cy + 5,
+        { tam: 17, negrita: true, alinear: 'center' });
+      texto('Toca para jugar de nuevo', cx, cy + 40, { tam: 13, tinta: TENUE, alinear: 'center' });
+    } else {
+      texto('PAUSA', cx, cy - 10, { tam: 34, negrita: true, alinear: 'center' });
+      texto('Toca para seguir', cx, cy + 30, { tam: 13, tinta: TENUE, alinear: 'center' });
+    }
+  }
+}
+
+reiniciar('inicio');
+bucle((dt) => { actualizar(dt); dibujar(); });
+window.juego = { j, reiniciar, actualizar, girar, mover, soltar, guardar, fijar, cabe, intervalo, Sonido };
+</script>
+</body>
+</html>
