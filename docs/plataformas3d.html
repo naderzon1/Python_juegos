@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0d1b2a">
+<title>Plataformas 3D</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body class="juego">
+<header class="barra">
+  <a href="index.html" aria-label="Volver al menú">⌂</a>
+  <h1>Plataformas 3D</h1>
+  <button id="b-sonido" aria-label="Sonido">🔊</button>
+  <button id="b-pausa" aria-label="Pausa">⏸</button>
+  <button id="b-reiniciar" aria-label="Reiniciar">↻</button>
+</header>
+<div class="zona escena" id="zona">
+  <div class="hud">
+    <div class="centro marcador" id="marcador"></div>
+    <div class="panel" id="panel"></div>
+    <div class="centro titulo" id="titulo"></div>
+    <div class="centro subtitulo" id="subtitulo"></div>
+  </div>
+</div>
+<div class="controles izq"><div class="joystick" id="joystick" aria-label="Palanca para moverse"><div class="palanca" id="palanca"></div></div></div>
+<div class="controles der"><button class="redondo" id="t-saltar">SALTAR</button></div>
+<p class="ayuda">A / D avanzar · W / S profundidad · Espacio saltar (mantén para más alto) · Shift correr · M sonido · P pausa · R reiniciar</p>
+
+<script src="comun.js"></script>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+// La lógica usa las mismas coordenadas que plataformas3d.py (z positiva = lejos de la cámara);
+// al dibujar se invierte z porque three.js mide z hacia la cámara.
+const LARGO = 124, MEDIO_Z = 3;
+const GRAVEDAD = 32, VEL_SALTO = 12.5, VEL_ANDAR = 6, VEL_CORRER = 9.5, VEL_REBOTE = 9;
+const MEDIO = 0.35, ALTO = 1.3;  // medio ancho y altura del héroe
+const VIDAS = 3, TIEMPO = 200, X_CONTROL = 60, X_META = 114, Y_BLOQUE = 3, EPS = 1e-4;
+const PIEDRA = '#9e9e9e', NARANJA = '#ef6c00', AMARILLO = '#fdd835';
+
+// --- nivel (el mismo de la versión de Python) ---
+const SUELO = [[0, 24], [27, 50], [58, 84], [92, LARGO]];
+// cajas fijas: x inicial, x final, altura de arriba, grosor, z inicial, z final, color
+const CAJAS = [
+  [17, 18.5, 1.2, 1.2, 0.5, 3, PIEDRA],
+  [32, 36, 2.0, 0.6, -1.5, 1.5, NARANJA], [38, 41, 3.6, 0.6, -1.5, 1.5, NARANJA],
+  [72, 74, 1, 1, -3, 3, PIEDRA], [74, 76, 2, 2, -3, 3, PIEDRA], [76, 84, 3, 3, -3, 3, PIEDRA],
+  [106, 108, 1, 1, -3, 3, PIEDRA], [108, 110, 2, 2, -3, 3, PIEDRA],
+];
+// plataformas móviles: x, altura de arriba, z, eje que recorren, amplitud, periodo en segundos
+const MOVILES = [[54, 0, 0, 'x', 2, 5], [88, 1.75, 0, 'y', 1.25, 4.5]];
+const BLOQUES = [[8, 0, '?'], [9, 0, 'L'], [10, 0, '?'], [11, 0, 'L'], [44, 1, 'L'], [45, 1, '?'], [46, 1, 'L'],
+  [63, -1, '?'], [64, -1, '?'], [65, -1, '?'], [98, 0, 'L'], [99, 0, '?'], [100, 0, 'L']];
+// enemigos: x, altura del piso, z, x mínima, x máxima, velocidad
+const ENEMIGOS = [[14, 0, 0, 11, 16.5, 1.8], [30, 0, -1.5, 28, 36, 2.0], [34, 2.0, 0, 32.5, 35.5, 1.2],
+  [44, 0, 1.5, 38, 49, 2.2], [62, 0, 1, 59, 70, 2.2], [67, 0, -1.5, 59, 71, 3.0], [80, 3, 0, 77, 83, 1.8],
+  [98, 0, 1, 93, 105, 2.4], [102, 0, -1.5, 93, 105, 3.0]];
+const fila = (x, n, y, z, paso = 1) => Array.from({ length: n }, (_, i) => [x + i * paso, y, z]);
+const MONEDAS = [...fila(4, 3, 1, 0), ...fila(13, 3, 1, -2), ...fila(20, 2, 1, 2), [24.6, 2.0, 0], [25.5, 2.5, 0], [26.4, 2.0, 0],
+  ...fila(33, 3, 3, 0), ...fila(38.8, 3, 4.6, 0, 0.7), ...fila(47, 2, 1, -1.5), ...fila(52, 3, 1.2, 0, 2),
+  ...fila(60, 3, 1, 1), ...fila(68, 2, 1, -2), [73, 2, 0], [75, 3, 0], ...fila(78, 4, 4, 0, 1.5),
+  [88, 4.4, 0], ...fila(94, 3, 1, 0), ...fila(103, 3, 1, 2), [107, 2, 0], [109, 3, 0]];
+
+// --- sonido: los mismos efectos y la misma música propia que la versión de Python ---
+const PASO = 0.2;
+const MELODIA = [[72, 1], [76, 1], [79, 1], [76, 1], [84, 2], [79, 2],
+  [77, 1], [81, 1], [84, 1], [81, 1], [79, 2], [76, 2],
+  [74, 1], [77, 1], [81, 1], [77, 1], [79, 1], [76, 1], [72, 2],
+  [74, 1], [76, 1], [77, 1], [74, 1], [67, 3], [null, 1],
+  [76, 1], [79, 1], [84, 1], [79, 1], [76, 2], [72, 2],
+  [81, 1], [84, 1], [88, 1], [84, 1], [81, 2], [76, 2],
+  [77, 1], [81, 1], [84, 1], [81, 1], [79, 1], [83, 1], [86, 2],
+  [84, 2], [79, 1], [76, 1], [72, 3], [null, 1]];
+const BAJO = [48, 48, 53, 53, 50, 50, 43, 43, 48, 48, 45, 45, 41, 43, 48, 48].flatMap((r) => [[r, 2], [r + 7, 2]]);
+Sonido.definir('salto', (s) => { const p = []; s.tono(p, 0, 0.2, 300, 900); return p; });
+Sonido.definir('moneda', (s) => { const p = []; s.melodia(p, [[84, 1], [88, 1], [91, 4]], 0.055, 0.3, 'cuadrada'); return p; });
+Sonido.definir('pisar', (s) => {
+  const p = []; s.tono(p, 0, 0.16, 420, 70, 0.35); s.tono(p, 0, 0.08, 0, null, 0.25, 'ruido'); return p;
+});
+Sonido.definir('bloque', (s) => { const p = []; s.tono(p, 0, 0.09, 190, 110, 0.4); return p; });
+Sonido.definir('golpe', (s) => { const p = []; s.melodia(p, [[72, 1], [68, 1], [65, 1], [60, 3]], 0.09, 0.3, 'cuadrada'); return p; });
+Sonido.definir('control', (s) => { const p = []; s.melodia(p, [[79, 1], [84, 3]], 0.09, 0.35, 'triangular'); return p; });
+Sonido.definir('victoria', (s) => {
+  const p = [];
+  s.melodia(p, [[72, 1], [76, 1], [79, 1], [84, 1], [88, 1], [91, 1], [96, 6]], 0.11, 0.25, 'cuadrada');
+  s.melodia(p, [[48, 3], [55, 3], [60, 6]], 0.11, 0.3, 'triangular');
+  return p;
+});
+Sonido.definir('fin', (s) => { const p = []; s.melodia(p, [[72, 2], [67, 2], [64, 2], [60, 5]], 0.16, 0.35, 'triangular'); return p; });
+Sonido.definir('musica', (s) => {
+  const p = [];
+  s.melodia(p, MELODIA, PASO, 0.15, 'cuadrada');
+  s.melodia(p, BAJO, PASO, 0.3, 'triangular');
+  return s.recortar(p, 64 * PASO);
+});
+
+// --- escena ---------------------------------------------------------------------
+const zona = document.getElementById('zona');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+zona.prepend(renderer.domElement);
+const escena = new THREE.Scene();
+escena.background = new THREE.Color('#7ec8f0');
+escena.fog = new THREE.Fog('#7ec8f0', 45, 110);
+const camara = new THREE.PerspectiveCamera(50, 1, 0.1, 300);
+camara.rotation.x = THREE.MathUtils.degToRad(-15);
+
+// se mantiene el mismo ancho de visión que la versión de Python (unos 53°) en cualquier pantalla;
+// con el teléfono vertical el ángulo vertical crece hasta un tope y la cámara se acerca
+let cercania = 1;
+function ajustar() {
+  const w = Math.max(1, zona.clientWidth), h = Math.max(1, zona.clientHeight);
+  renderer.setSize(w, h);
+  camara.aspect = w / h;
+  cercania = Math.min(1, Math.max(0.6, camara.aspect / 1.2));
+  const vertical = 2 * Math.atan(Math.tan(THREE.MathUtils.degToRad(53) / 2) / camara.aspect);
+  camara.fov = Math.min(75, Math.max(20, THREE.MathUtils.radToDeg(vertical)));
+  camara.updateProjectionMatrix();
+}
+new ResizeObserver(ajustar).observe(zona);
+ajustar();
+
+escena.add(new THREE.HemisphereLight('#ffffff', '#7a6a5a', 1.5));
+const sol = new THREE.DirectionalLight('#ffffff', 2.2);
+sol.castShadow = true;
+sol.shadow.mapSize.set(1024, 1024);
+Object.assign(sol.shadow.camera, { left: -16, right: 16, top: 16, bottom: -16, near: 1, far: 70 });
+sol.shadow.bias = -0.0008;
+escena.add(sol, sol.target);
+
+const lit = (opts) => new THREE.MeshLambertMaterial(typeof opts === 'string' ? { color: opts } : opts);
+const plano = (color, extra = {}) => new THREE.MeshBasicMaterial({ color, ...extra });
+const CUBO = new THREE.BoxGeometry(1, 1, 1);
+const ESFERA = new THREE.SphereGeometry(0.5, 20, 12);
+function malla(geo, material, x, y, z, padre = escena, sombra = true) {
+  const m = new THREE.Mesh(geo, material);
+  m.position.set(x, y, -z);
+  m.castShadow = m.receiveShadow = sombra;
+  padre.add(m);
+  return m;
+}
+
+// texturas pixeladas dibujadas a mano: bloque "?", bloque gastado, ladrillo y pasto
+function textura(ancho, alto, dibujar, repetir = null) {
+  const c = document.createElement('canvas');
+  c.width = ancho;
+  c.height = alto;
+  dibujar(c.getContext('2d'));
+  const t = new THREE.CanvasTexture(c);
+  t.magFilter = THREE.NearestFilter;
+  t.colorSpace = THREE.SRGBColorSpace;
+  if (repetir) {
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(...repetir);
+  }
+  return t;
+}
+function lienzoBloque(g, fondo, borde) {
+  g.fillStyle = fondo;
+  g.fillRect(0, 0, 32, 32);
+  g.strokeStyle = borde;
+  g.lineWidth = 2;
+  g.strokeRect(1, 1, 30, 30);
+}
+const INTERROGACION = ['..XXXX..', '.XX..XX.', '.....XX.', '....XX..', '...XX...', '...XX...', '........', '...XX...'];
+const TEXTURAS = {
+  '?': textura(32, 32, (g) => {
+    lienzoBloque(g, '#fbc02d', '#e65100');
+    for (const [d, tinta] of [[1, '#8d4a00'], [0, '#ffffff']]) { // sombra y luego el signo
+      g.fillStyle = tinta;
+      INTERROGACION.forEach((linea, fy) => [...linea].forEach((c, fx) => {
+        if (c === 'X') g.fillRect(4 + fx * 3 + d, 4 + fy * 3 + d, 3, 3);
+      }));
+    }
+  }),
+  gastado: textura(32, 32, (g) => lienzoBloque(g, '#8d6e63', '#4e342e')),
+  L: textura(32, 32, (g) => {
+    g.fillStyle = '#bf5a2e';
+    g.fillRect(0, 0, 32, 32);
+    g.fillStyle = '#5d2a12';
+    for (let y = 0; y < 32; y += 8) {
+      g.fillRect(0, y, 32, 1);
+      for (let x = (y / 8) % 2 === 0 ? 0 : 8; x < 32; x += 16) g.fillRect(x, y, 1, 8);
+    }
+  }),
+};
+const pasto = (largo) => textura(2, 2, (g) => {
+  g.fillStyle = '#4caf50';
+  g.fillRect(0, 0, 2, 2);
+  g.fillStyle = '#43a047';
+  g.fillRect(0, 0, 1, 1);
+  g.fillRect(1, 1, 1, 1);
+}, [largo / 2, MEDIO_Z]);
+
+// caja con la que choca el héroe: centro (cx, cy, cz) y medias medidas (mx, my, mz)
+function solido(x0, x1, y0, y1, z0, z1) {
+  return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, cz: (z0 + z1) / 2, mx: (x1 - x0) / 2, my: (y1 - y0) / 2, mz: (z1 - z0) / 2,
+    dx: 0, dy: 0, tipo: '', usado: false, vista: null, tGolpe: 0 };
+}
+function vistaDe(s, material) {
+  const m = malla(CUBO, material, s.cx, s.cy, s.cz);
+  m.scale.set(2 * s.mx, 2 * s.my, 2 * s.mz);
+  return m;
+}
+
+const solidos = [], moviles = [], bloques = [];
+for (const [x0, x1] of SUELO) {
+  const s = solido(x0, x1, -2.5, 0, -MEDIO_Z, MEDIO_Z);
+  malla(CUBO, lit('#8d5a3b'), s.cx, -1.4, 0).scale.set(x1 - x0, 2.2, 2 * MEDIO_Z);
+  malla(CUBO, lit({ map: pasto(x1 - x0) }), s.cx, -0.15, 0).scale.set(x1 - x0, 0.3, 2 * MEDIO_Z);
+  solidos.push(s);
+}
+for (const [x0, x1, arriba, grosor, z0, z1, hexa] of CAJAS) {
+  const s = solido(x0, x1, arriba - grosor, arriba, z0, z1);
+  s.vista = vistaDe(s, lit(hexa));
+  solidos.push(s);
+}
+for (const [x, arriba, z, eje, amplitud, periodo] of MOVILES) {
+  const s = solido(x - 1.5, x + 1.5, arriba - 0.6, arriba, z - 1.5, z + 1.5);
+  s.vista = vistaDe(s, lit(AMARILLO));
+  Object.assign(s, { eje, amplitud, periodo, base: eje === 'x' ? s.cx : s.cy });
+  solidos.push(s);
+  moviles.push(s);
+}
+for (const [x, z, tipo] of BLOQUES) {
+  const s = solido(x - 0.5, x + 0.5, Y_BLOQUE, Y_BLOQUE + 1, z - 0.5, z + 0.5);
+  s.tipo = tipo;
+  s.vista = vistaDe(s, lit({ map: TEXTURAS[tipo] }));
+  solidos.push(s);
+  bloques.push(s);
+}
+
+// bandera de meta y banderín del punto de control
+malla(CUBO, lit('#eceff1'), X_META, 3, 0).scale.set(0.14, 6, 0.14);
+malla(ESFERA, lit(AMARILLO), X_META, 6.1, 0).scale.setScalar(0.4);
+malla(CUBO, lit('#e53935'), X_META + 0.75, 5.3, 0).scale.set(1.4, 1, 0.06);
+malla(CUBO, lit(PIEDRA), X_META, 0.2, 0).scale.set(0.9, 0.4, 0.9);
+malla(CUBO, lit('#eceff1'), X_CONTROL, 1, 2.6).scale.set(0.1, 2, 0.1);
+const banderin = malla(CUBO, lit('#b0bec5'), X_CONTROL + 0.4, 1.7, 2.6);
+banderin.scale.set(0.7, 0.5, 0.05);
+
+// decorado lejano: colinas y nubes
+let semilla = 5;
+const azar = () => (semilla = (semilla * 16807) % 2147483647) / 2147483647;
+for (let x = -10; x < LARGO + 30; x += 14) {
+  const c = malla(ESFERA, plano(['#66bb6a', '#81c784', '#5aa95e'][Math.floor(azar() * 3)]),
+    x + azar() * 6 - 3, -3, 14 + azar() * 10, escena, false);
+  c.scale.set(12 + azar() * 8, 8 + azar() * 6, 10);
+  const nube = new THREE.Group();
+  nube.position.set(x + azar() * 10 - 5, 9 + azar() * 5, -(16 + azar() * 12));
+  for (const [dx, esc] of [[-1.6, 1.8], [0, 2.6], [1.7, 2.0]]) {
+    malla(ESFERA, plano('#ffffff'), dx, 0, 0, nube, false).scale.set(esc * 1.3, esc * 0.8, esc);
+  }
+  escena.add(nube);
+}
+
+// héroe hecho con primitivas, mirando hacia el fondo
+const heroe = new THREE.Group();
+escena.add(heroe);
+const piernas = [], brazos = [];
+for (const lado of [-1, 1]) {
+  const cadera = new THREE.Group();
+  cadera.position.set(lado * 0.16, 0.45, 0);
+  heroe.add(cadera);
+  malla(CUBO, lit('#283593'), 0, -0.22, 0, cadera).scale.set(0.22, 0.45, 0.26);
+  piernas.push(cadera);
+  const hombro = new THREE.Group();
+  hombro.position.set(lado * 0.4, 0.92, 0);
+  heroe.add(hombro);
+  malla(CUBO, lit('#ffcc99'), 0, -0.2, 0, hombro).scale.set(0.15, 0.42, 0.2);
+  brazos.push(hombro);
+  malla(ESFERA, lit('#000000'), lado * 0.1, 1.14, 0.22, heroe).scale.setScalar(0.08);
+}
+malla(CUBO, lit('#00897b'), 0, 0.7, 0, heroe).scale.set(0.62, 0.5, 0.4);
+malla(ESFERA, lit('#ffcc99'), 0, 1.12, 0, heroe).scale.setScalar(0.5);
+malla(ESFERA, lit(AMARILLO), 0, 1.27, 0, heroe).scale.set(0.54, 0.26, 0.54);
+malla(CUBO, lit(AMARILLO), 0, 1.22, 0.3, heroe).scale.set(0.4, 0.05, 0.3);
+// sombra redonda bajo el héroe: ayuda a calcular dónde va a caer
+const sombra = new THREE.Mesh(new THREE.CircleGeometry(0.4, 24),
+  plano('#000000', { transparent: true, opacity: 0.35, depthWrite: false }));
+sombra.rotation.x = -Math.PI / 2;
+escena.add(sombra);
+
+function crearEnemigo([x, piso, z, xMin, xMax, vel]) {
+  const e = new THREE.Group();
+  e.position.set(x, piso, -z);
+  e.userData = { xMin, xMax, vel, piso, z };
+  e.userData.cuerpo = malla(ESFERA, lit('#7e57c2'), 0, 0.42, 0, e);
+  e.userData.cuerpo.scale.set(0.9, 0.8, 0.9);
+  for (const lado of [-1, 1]) {
+    malla(ESFERA, lit('#ffffff'), lado * 0.17, 0.55, 0.36, e).scale.setScalar(0.2);
+    malla(ESFERA, lit('#000000'), lado * 0.17, 0.55, 0.44, e).scale.setScalar(0.09);
+    malla(CUBO, lit('#4527a0'), lado * 0.22, 0.07, 0.05, e).scale.set(0.28, 0.14, 0.4);
+  }
+  escena.add(e);
+  return e;
+}
+const MAT_MONEDA = lit('#ffca28');
+function crearMoneda([x, y, z]) {
+  const m = malla(ESFERA, MAT_MONEDA, x, y, z);
+  m.scale.set(0.55, 0.55, 0.12);
+  return m;
+}
+
+// --- estado y reglas (igual que plataformas3d.py) ------------------------------------
+const j = { estado: 'inicio', monedas: [], enemigos: [], efimeros: [] };
+const teclas = new Set();
+const palanca = { x: 0, z: 0 };
+let saltoTactil = false;
+
+function reiniciar(estado = 'jugando') {
+  for (const m of [...j.monedas, ...j.enemigos, ...j.efimeros.map((f) => f.malla)]) escena.remove(m);
+  j.monedas = MONEDAS.map(crearMoneda);
+  j.enemigos = ENEMIGOS.map(crearEnemigo);
+  j.efimeros = [];   // monedas que saltan de un bloque y enemigos aplastados
+  for (const b of bloques) {
+    b.usado = false;
+    b.vista.material.map = TEXTURAS[b.tipo];
+  }
+  j.puntos = j.nMonedas = 0;
+  j.vidas = VIDAS;
+  j.tiempo = TIEMPO;
+  j.reloj = 0;
+  for (const s of moviles) { // vuelven a su punto de partida junto con el reloj
+    if (s.eje === 'x') s.cx = s.base; else s.cy = s.base;
+    s.dx = s.dy = 0;
+    s.vista.position.set(s.cx, s.cy, -s.cz);
+  }
+  j.xReaparicion = 2;
+  banderin.material.color.set('#b0bec5');
+  j.estado = estado;
+  j.pausa = false;
+  reaparecer();
+  camara.position.copy(puntoCamara());
+  if (estado === 'jugando') {
+    Sonido.reanudar();
+    Sonido.musica('musica');
+  }
+}
+
+function reaparecer() {
+  Object.assign(j, { px: j.xReaparicion, py: 0, pz: 0, vx: 0, vy: 0, vz: 0, enSuelo: false, apoyo: null,
+    tPedido: 0, tSuelo: 0, tInmune: 0, rumbo: -Math.PI / 2 }); // empieza mirando hacia la derecha
+  heroe.rotation.y = -Math.PI / 2;
+}
+
+function perderVida() {
+  j.vidas--;
+  if (j.vidas <= 0) {
+    terminar('fin');
+  } else {
+    Sonido.tocar('golpe');
+    reaparecer();
+    j.tInmune = 2;
+    vibrar(60);
+  }
+}
+
+function terminar(estado) {
+  j.estado = estado;
+  Sonido.pararMusica();
+  if (estado === 'ganado') {
+    j.puntos += Math.floor(j.tiempo) * 10;
+    Sonido.tocar('victoria');
+  } else {
+    Sonido.tocar('fin');
+  }
+}
+
+// sólidos que se cruzan con la caja del héroe puesta en (x, y, z)
+function solidosEn(x, y, z) {
+  return solidos.filter((s) => Math.abs(x - s.cx) < MEDIO + s.mx - EPS && Math.abs(z - s.cz) < MEDIO + s.mz - EPS
+    && y < s.cy + s.my - EPS && y + ALTO > s.cy - s.my + EPS);
+}
+
+function moverPlataformas(dt) {
+  j.reloj += dt;
+  for (const s of moviles) {
+    const nuevo = s.base + s.amplitud * Math.sin(2 * Math.PI * j.reloj / s.periodo);
+    if (s.eje === 'x') { s.dx = nuevo - s.cx; s.cx = nuevo; } else { s.dy = nuevo - s.cy; s.cy = nuevo; }
+    s.vista.position.set(s.cx, s.cy, -s.cz);
+  }
+  // la plataforma lleva encima al héroe
+  if (j.apoyo && j.estado === 'jugando') {
+    j.px += j.apoyo.dx;
+    j.py += j.apoyo.dy;
+  }
+}
+
+const pulsada = (...ks) => ks.some((k) => teclas.has(k));
+const acercar = (valor, objetivo, paso) => (valor < objetivo ? Math.min(valor + paso, objetivo) : Math.max(valor - paso, objetivo));
+
+function moverHeroe(dt) {
+  let dx = (pulsada('d', 'arrowright') ? 1 : 0) - (pulsada('a', 'arrowleft') ? 1 : 0);
+  let dz = (pulsada('w', 'arrowup') ? 1 : 0) - (pulsada('s', 'arrowdown') ? 1 : 0);
+  let vel = pulsada('shift') ? VEL_CORRER : VEL_ANDAR;
+  if (dx && dz) vel *= 0.75;
+  const fuerza = Math.hypot(palanca.x, palanca.z);
+  if (fuerza > 0) { // la palanca táctil: empujarla hasta el borde hace correr
+    dx = palanca.x;
+    dz = palanca.z;
+    vel = fuerza > 0.92 ? VEL_CORRER : VEL_ANDAR;
+    if (fuerza > 0.92) { dx /= fuerza; dz /= fuerza; }
+  }
+  const acel = (j.enSuelo ? 60 : 35) * dt;
+  j.vx = acercar(j.vx, dx * vel, acel);
+  j.vz = acercar(j.vz, dz * vel * 0.8, acel);
+
+  j.tPedido -= dt;
+  j.tSuelo -= dt;
+  if (j.tPedido > 0 && j.tSuelo > 0) {
+    j.vy = VEL_SALTO;
+    j.tPedido = j.tSuelo = 0;
+    Sonido.tocar('salto');
+  }
+  if (j.vy > 5 && !teclas.has(' ') && !saltoTactil) j.vy = 5; // salto corto si se suelta
+  j.vy = Math.max(j.vy - GRAVEDAD * dt, -22);
+
+  // se resuelve un eje cada vez: así el héroe resbala por las paredes en vez de atascarse
+  let x = j.px + j.vx * dt;
+  for (const s of solidosEn(x, j.py, j.pz)) {
+    x = x < s.cx ? s.cx - s.mx - MEDIO : s.cx + s.mx + MEDIO;
+    j.vx = 0;
+  }
+  j.px = Math.max(MEDIO, Math.min(LARGO - MEDIO, x));
+
+  let z = j.pz + j.vz * dt;
+  for (const s of solidosEn(j.px, j.py, z)) {
+    z = z < s.cz ? s.cz - s.mz - MEDIO : s.cz + s.mz + MEDIO;
+    j.vz = 0;
+  }
+  j.pz = Math.max(-MEDIO_Z + MEDIO, Math.min(MEDIO_Z - MEDIO, z));
+
+  let y = j.py + j.vy * dt;
+  j.enSuelo = false;
+  j.apoyo = null;
+  const bajando = j.vy <= 0; // se decide antes: puede tocar dos sólidos en el mismo cuadro
+  for (const s of solidosEn(j.px, y, j.pz)) {
+    if (bajando) {
+      y = Math.max(y, s.cy + s.my);
+      j.enSuelo = true;
+      j.apoyo = s;
+      j.tSuelo = 0.1;
+    } else {
+      y = Math.min(y, s.cy - s.my - ALTO);
+      golpearBloque(s);
+    }
+    j.vy = 0;
+  }
+  j.py = y;
+
+  if (j.py < -8) {
+    perderVida();
+  } else if (j.px >= X_META - 0.5) {
+    terminar('ganado');
+  } else if (j.px >= X_CONTROL && j.xReaparicion < X_CONTROL) {
+    j.xReaparicion = X_CONTROL;
+    banderin.material.color.set('#43a047');
+    Sonido.tocar('control');
+  }
+}
+
+function golpearBloque(s) {
+  if (!s.tipo) return;
+  s.tGolpe = 0.18;
+  if (s.tipo === '?' && !s.usado) {
+    s.usado = true;
+    s.vista.material.map = TEXTURAS.gastado;
+    j.nMonedas++;
+    j.puntos += 50;
+    Sonido.tocar('moneda');
+    j.efimeros.push({ malla: crearMoneda([s.cx, s.cy + 0.9, s.cz]), t: 0, tipo: 'moneda', base: s.cy + 0.9 });
+  } else {
+    Sonido.tocar('bloque');
+  }
+}
+
+function moverEnemigos(dt) {
+  for (const e of [...j.enemigos]) {
+    const u = e.userData;
+    e.position.x += u.vel * dt;
+    if (e.position.x >= u.xMax) u.vel = -Math.abs(u.vel);
+    else if (e.position.x <= u.xMin) u.vel = Math.abs(u.vel);
+    e.rotation.y = u.vel > 0 ? -Math.PI / 2 : Math.PI / 2;
+    u.cuerpo.rotation.z = 0.14 * Math.sin(j.reloj * 9);
+    const toca = Math.abs(j.px - e.position.x) < MEDIO + 0.45 && Math.abs(j.pz - u.z) < MEDIO + 0.45
+      && j.py < u.piso + 0.8 && j.py + ALTO > u.piso;
+    if (!toca) continue;
+    if (j.vy < 0 && j.py > u.piso + 0.3) { // cae sobre él: lo aplasta y rebota
+      j.enemigos.splice(j.enemigos.indexOf(e), 1);
+      e.scale.y = 0.25;
+      j.efimeros.push({ malla: e, t: 0, tipo: 'aplastado' });
+      j.vy = VEL_REBOTE;
+      j.puntos += 100;
+      Sonido.tocar('pisar');
+    } else if (j.tInmune <= 0) {
+      perderVida();
+      break;
+    }
+  }
+}
+
+function recogerMonedas() {
+  j.monedas = j.monedas.filter((m) => {
+    const cerca = Math.abs(m.position.x - j.px) < 0.8 && Math.abs(m.position.y - j.py - ALTO / 2) < 1
+      && Math.abs(-m.position.z - j.pz) < 0.8;
+    if (!cerca) return true;
+    escena.remove(m);
+    j.nMonedas++;
+    j.puntos += 50;
+    Sonido.tocar('moneda');
+    return false;
+  });
+}
+
+// --- dibujo ---------------------------------------------------------------------
+function puntoCamara() {
+  const altura = 6.5 + Math.max(j.py, 0) * 0.5;
+  return new THREE.Vector3(j.px + 3.5 * cercania, altura * cercania + 1.5 * (1 - cercania), 20 * cercania);
+}
+
+function animar(dt) {
+  heroe.position.set(j.px, j.py, -j.pz);
+  if (Math.abs(j.vx) + Math.abs(j.vz) > 0.5) j.rumbo = Math.atan2(-j.vx, j.vz);
+  let giro = j.rumbo - heroe.rotation.y;
+  giro = Math.atan2(Math.sin(giro), Math.cos(giro));
+  heroe.rotation.y += giro * Math.min(1, 14 * dt);
+  let paso = 0;
+  if (j.enSuelo) paso = 0.7 * Math.sin(j.reloj * 14) * Math.min(1, (Math.abs(j.vx) + Math.abs(j.vz)) / VEL_ANDAR);
+  piernas[0].rotation.x = paso;
+  piernas[1].rotation.x = -paso;
+  brazos[0].rotation.x = j.enSuelo ? -paso : 2.6; // brazos arriba en el aire
+  brazos[1].rotation.x = j.enSuelo ? paso : 2.6;
+  j.tInmune = Math.max(0, j.tInmune - dt);
+  heroe.visible = j.estado !== 'fin' && (j.tInmune <= 0 || Math.floor(j.reloj * 14) % 2 === 0);
+
+  // la sombra se apoya en lo más alto que haya debajo del héroe
+  let piso = null;
+  for (const s of solidos) {
+    const arriba = s.cy + s.my;
+    if (Math.abs(j.px - s.cx) < s.mx && Math.abs(j.pz - s.cz) < s.mz && arriba <= j.py + 0.05 && (piso === null || arriba > piso)) piso = arriba;
+  }
+  sombra.visible = piso !== null && heroe.visible;
+  if (piso !== null) sombra.position.set(j.px, piso + 0.02, -j.pz);
+
+  for (const m of j.monedas) m.rotation.y += 3.5 * dt;
+  for (const b of bloques) {
+    b.tGolpe = Math.max(0, b.tGolpe - dt);
+    b.vista.position.y = b.cy + (b.tGolpe > 0 ? 0.25 * Math.sin(Math.PI * (1 - b.tGolpe / 0.18)) : 0);
+  }
+  j.efimeros = j.efimeros.filter((f) => {
+    f.t += dt;
+    if (f.tipo === 'moneda') f.malla.position.y = f.base + 1.4 * Math.min(1, f.t / 0.3);
+    if (f.t < 0.35) return true;
+    escena.remove(f.malla);
+    return false;
+  });
+  camara.position.lerp(puntoCamara(), Math.min(1, 5 * dt));
+  // la luz que da las sombras acompaña al héroe
+  sol.target.position.set(j.px, 0, -j.pz);
+  sol.position.set(j.px - 10, 25, -j.pz + 15);
+}
+
+const $ = (id) => document.getElementById(id);
+const textos = {};
+function poner(id, valor, prop = 'textContent') {
+  if (textos[id + prop] === valor) return;
+  textos[id + prop] = valor;
+  if (prop === 'textContent') $(id).textContent = valor; else $(id).style[prop] = valor;
+}
+const tactil = matchMedia('(pointer: coarse)').matches;
+function actualizarHud() {
+  poner('marcador', `PUNTOS ${String(j.puntos).padStart(6, '0')}   MONEDAS ${String(j.nMonedas).padStart(2, '0')}   `
+    + `VIDAS ${j.vidas}   TIEMPO ${String(Math.max(0, Math.ceil(j.tiempo))).padStart(3, '0')}`);
+  let titulo = '', sub = '', tinta = '#ffffff';
+  if (j.estado === 'inicio') {
+    titulo = 'AVENTURA DE PLATAFORMAS';
+    sub = tactil ? 'Toca para empezar · palanca para moverte, botón para saltar' : 'Pulsa una tecla para empezar';
+  } else if (j.estado === 'ganado') {
+    [titulo, tinta, sub] = ['¡NIVEL COMPLETADO!', '#a5d6a7', `Puntos: ${j.puntos} · toca para jugar de nuevo`];
+  } else if (j.estado === 'fin') {
+    [titulo, tinta, sub] = ['FIN DEL JUEGO', '#ef9a9a', 'Toca para volver a intentarlo'];
+  } else if (j.pausa) {
+    [titulo, sub] = ['PAUSA', 'Toca para seguir'];
+  }
+  poner('titulo', titulo);
+  poner('titulo', tinta, 'color');
+  poner('subtitulo', sub);
+  poner('panel', titulo ? 'block' : 'none', 'display');
+}
+
+// --- controles --------------------------------------------------------------------
+function empezar() {
+  Sonido.iniciar();
+  if (j.estado === 'inicio') reiniciar();
+}
+function pedirSalto() {
+  if (j.estado === 'jugando' && !j.pausa) j.tPedido = 0.12;
+}
+function alternarPausa() {
+  if (j.estado !== 'jugando') return;
+  j.pausa = !j.pausa;
+  if (j.pausa) Sonido.pausar(); else Sonido.reanudar();
+}
+function alternarSonido() {
+  Sonido.iniciar();
+  Sonido.alternar();
+  $('b-sonido').textContent = Sonido.activo ? '🔊' : '🔇';
+}
+$('b-sonido').textContent = Sonido.activo ? '🔊' : '🔇';
+$('b-sonido').addEventListener('click', alternarSonido);
+$('b-pausa').addEventListener('click', () => { Sonido.iniciar(); alternarPausa(); });
+$('b-reiniciar').addEventListener('click', () => { Sonido.iniciar(); reiniciar(); });
+
+addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' '].includes(k)) e.preventDefault();
+  teclas.add(k);
+  if (e.repeat) return;
+  if (j.estado === 'inicio') { empezar(); return; }
+  if (k === ' ') pedirSalto();
+  else if (k === 'r') reiniciar();
+  else if (k === 'p') alternarPausa();
+  else if (k === 'm') alternarSonido();
+});
+addEventListener('keyup', (e) => teclas.delete(e.key.toLowerCase()));
+addEventListener('blur', () => teclas.clear());
+
+// palanca táctil: el dedo arrastra la perilla; arriba es "hacia el fondo"
+const joystick = $('joystick'), perilla = $('palanca');
+let dedoPalanca = null;
+function moverPalanca(e) {
+  const r = joystick.getBoundingClientRect();
+  const radio = r.width / 2;
+  let dx = (e.clientX - r.left - radio) / radio, dy = (e.clientY - r.top - radio) / radio;
+  const largo = Math.hypot(dx, dy);
+  if (largo > 1) { dx /= largo; dy /= largo; }
+  const util = largo < 0.15 ? 0 : 1; // zona muerta en el centro
+  palanca.x = dx * util;
+  palanca.z = -dy * util;
+  perilla.style.transform = `translate(${dx * radio * 0.6}px, ${dy * radio * 0.6}px)`;
+}
+joystick.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  empezar();
+  dedoPalanca = e.pointerId;
+  try { joystick.setPointerCapture(e.pointerId); } catch { /* sin captura */ }
+  moverPalanca(e);
+});
+joystick.addEventListener('pointermove', (e) => { if (e.pointerId === dedoPalanca) moverPalanca(e); });
+const soltarPalanca = (e) => {
+  if (e.pointerId !== dedoPalanca) return;
+  dedoPalanca = null;
+  palanca.x = palanca.z = 0;
+  perilla.style.transform = '';
+};
+joystick.addEventListener('pointerup', soltarPalanca);
+joystick.addEventListener('pointercancel', soltarPalanca);
+joystick.addEventListener('lostpointercapture', soltarPalanca);
+
+botonMantener($('t-saltar'), () => {
+  if (j.estado === 'inicio') { empezar(); return; }
+  saltoTactil = true;
+  pedirSalto();
+}, () => { saltoTactil = false; });
+
+zona.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  Sonido.iniciar();
+  if (j.estado === 'inicio') empezar();
+  else if (j.estado !== 'jugando') reiniciar();
+  else if (j.pausa) alternarPausa();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && j.estado === 'jugando' && !j.pausa) alternarPausa();
+});
+
+// --- bucle --------------------------------------------------------------------------
+reiniciar('inicio');
+bucle((dtReal) => {
+  const dt = Math.min(dtReal, 1 / 20);
+  if (!j.pausa) {
+    moverPlataformas(dt);
+    if (j.estado === 'jugando') {
+      // pasos cortos para no atravesar plataformas delgadas si baja la velocidad de cuadros
+      const pasos = Math.max(1, Math.ceil(dt * 120));
+      for (let k = 0; k < pasos && j.estado === 'jugando'; k++) moverHeroe(dt / pasos);
+    }
+    if (j.estado === 'jugando') moverEnemigos(dt);
+    if (j.estado === 'jugando') {
+      recogerMonedas();
+      j.tiempo -= dt;
+      if (j.tiempo <= 0) { j.tiempo = TIEMPO; perderVida(); }
+    }
+    animar(dt);
+  }
+  actualizarHud();
+  renderer.render(escena, camara);
+});
+window.juego = { j, reiniciar, moverHeroe, moverPlataformas, moverEnemigos, recogerMonedas, animar, palanca, teclas, moviles, bloques, Sonido,
+  pedirSalto, set saltoTactil(v) { saltoTactil = v; } };
+</script>
+</body>
+</html>

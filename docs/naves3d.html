@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#03040c">
+<title>Naves 3D</title>
+<link rel="stylesheet" href="estilo.css">
+</head>
+<body class="juego">
+<header class="barra">
+  <a href="index.html" aria-label="Volver al menú">⌂</a>
+  <h1>Naves 3D</h1>
+  <button id="b-modo">Tú vs PC</button>
+  <button id="b-nivel">Media</button>
+  <button id="b-sonido" aria-label="Sonido">🔊</button>
+  <button id="b-pausa" aria-label="Pausa">⏸</button>
+  <button id="b-reiniciar" aria-label="Reiniciar">↻</button>
+</header>
+<div class="zona escena" id="zona">
+  <div class="hud">
+    <div class="vida" id="vida-1" style="top: 10px"><div class="medidor"><div></div></div><span></span></div>
+    <div class="vida" id="vida-2" style="bottom: 52px"><div class="medidor"><div></div></div><span></span></div>
+    <div class="vida" id="vida-0" style="bottom: 30px"><div class="medidor"><div></div></div><span></span></div>
+    <div class="centro titulo" id="titulo"></div>
+    <div class="centro subtitulo" id="subtitulo"></div>
+    <div class="centro info" id="info"></div>
+  </div>
+</div>
+<p class="ayuda">J1: A / D + W o Espacio · J2: ← → + ↑ o Enter (en Tú vs PC también flechas) · J cambiar modo · 1 / 2 / 3 dificultad · P pausa · R reiniciar · M sonido</p>
+
+<script src="comun.js"></script>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+// La lógica usa las mismas coordenadas que naves3d.py (z positiva = lejos de la cámara);
+// al dibujar se invierte z porque three.js mide z hacia la cámara.
+const LIMITE_X = 9.5;          // medio ancho del campo
+const Z_NAVE = [-8, 8];        // bando 0 cerca de la cámara, bando 1 al fondo
+const VIDA = 10, VEL_NAVE = 11, VEL_BALA = 17, ENFRIAMIENTO = 0.3;
+const ARRASTRE = 1.2;          // cuánto se mueve la nave al arrastrar el dedo
+
+const UNO = 0, EQUIPO = 1, DUELO = 2;
+const MODO = ['PC vs USUARIO', 'PC vs 2 USUARIOS', 'USUARIO vs USUARIO'];
+const BOTON_MODO = ['Tú vs PC', '2 vs PC', '1 vs 1'];
+const FINAL = [['¡VICTORIA!', 'DERROTA'], ['¡GANA EL EQUIPO!', 'GANÓ EL COMPUTADOR'], ['¡GANA JUGADOR 1!', '¡GANA JUGADOR 2!']];
+// nave 0: jugador 1 | nave 1: computador o jugador 2 rival | nave 2: jugador 2 aliado (solo en equipo)
+const BANDO = [0, 1, 0];
+const HEX = ['#4fc3f7', '#ff7043', '#81c784'];
+const HEX_BALA = ['#b3ecff', '#ffd0c2', '#c8e6c9'];
+const TECLAS_SOLO = [['a', 'arrowleft'], ['d', 'arrowright'], ['w', ' ']];
+const TECLAS_J1 = [['a'], ['d'], ['w', ' ']];
+const TECLAS_J2 = [['arrowleft'], ['arrowright'], ['arrowup', 'enter']];
+const VIDA_PC_EQUIPO = 2, CADENCIA_PC_EQUIPO = 0.7;
+// nombre, velocidad nave IA, enfriamiento de disparo IA (s), prob. de esquivar, error de puntería
+const DIFICULTAD = { 1: ['Fácil', 4.5, 0.90, 0.30, 2.6], 2: ['Media', 6.5, 0.62, 0.70, 1.3], 3: ['Difícil', 9.0, 0.42, 0.95, 0.4] };
+
+Sonido.definir('disparo', (s) => { const p = []; s.tono(p, 0, 0.07, 1100, 500, 0.1); return p; });
+Sonido.definir('impacto', (s) => {
+  const p = []; s.tono(p, 0, 0.1, 260, 90, 0.3); s.tono(p, 0, 0.06, 0, null, 0.2, 'ruido'); return p;
+});
+Sonido.definir('explosion', (s) => {
+  const p = []; s.tono(p, 0, 0.6, 0, null, 0.4, 'ruido'); s.tono(p, 0, 0.5, 140, 35, 0.35, 'triangular'); return p;
+});
+Sonido.definir('victoria', (s) => {
+  const p = [];
+  s.melodia(p, [[72, 1], [76, 1], [79, 1], [84, 1], [88, 1], [91, 1], [96, 6]], 0.1, 0.22, 'cuadrada');
+  s.melodia(p, [[48, 3], [55, 3], [60, 6]], 0.1, 0.3, 'triangular');
+  return p;
+});
+Sonido.definir('derrota', (s) => {
+  const p = []; s.melodia(p, [[72, 2], [67, 2], [64, 2], [60, 5]], 0.16, 0.35, 'triangular'); return p;
+});
+
+// --- escena ---------------------------------------------------------------------
+const zona = document.getElementById('zona');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+zona.prepend(renderer.domElement);
+const escena = new THREE.Scene();
+escena.background = new THREE.Color('#03040c');
+const camara = new THREE.PerspectiveCamera(50, 1, 0.1, 1200);
+const POS_CAMARA = new THREE.Vector3(0, 15, 25);
+camara.position.copy(POS_CAMARA);
+camara.lookAt(0, 0, 1.5);
+escena.add(camara);
+
+// el campo debe caber a lo ancho también con el teléfono vertical
+function ajustar() {
+  const w = Math.max(1, zona.clientWidth), h = Math.max(1, zona.clientHeight);
+  renderer.setSize(w, h);
+  camara.aspect = w / h;
+  const mitadHorizontal = Math.atan(11.8 / 22.7);
+  const vertical = 2 * Math.atan(Math.tan(mitadHorizontal) / camara.aspect);
+  camara.fov = THREE.MathUtils.radToDeg(Math.max(THREE.MathUtils.degToRad(48), vertical));
+  camara.updateProjectionMatrix();
+}
+new ResizeObserver(ajustar).observe(zona);
+ajustar();
+
+escena.add(new THREE.AmbientLight('#585878', 1.2));
+const sol = new THREE.DirectionalLight('#ffffff', 2.4);
+sol.position.set(-6, 10, 8);
+escena.add(sol);
+
+const lit = (color) => new THREE.MeshLambertMaterial({ color });
+const plano = (color, extra = {}) => new THREE.MeshBasicMaterial({ color, ...extra });
+const ESFERA = new THREE.SphereGeometry(0.5, 24, 14);
+const CUBO = new THREE.BoxGeometry(1, 1, 1);
+
+// estrellas: una sola nube de puntos sobre una esfera lejana
+const estrellas = (() => {
+  const pos = [], col = [];
+  const paleta = ['#ffffff', '#ffe9a8', '#a8d8ff', '#ffc9c9', '#cfd8ff'].map((c) => new THREE.Color(c));
+  for (let k = 0; k < 1400; k++) {
+    const u = Math.random() * 2 - 1, t = Math.random() * Math.PI * 2, r = 260 + Math.random() * 160;
+    const s = Math.sqrt(1 - u * u);
+    pos.push(r * s * Math.cos(t), r * u, r * s * Math.sin(t));
+    const c = paleta[Math.floor(Math.random() * paleta.length)].clone().multiplyScalar(0.5 + Math.random() * 0.5);
+    col.push(c.r, c.g, c.b);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  const p = new THREE.Points(geo, new THREE.PointsMaterial({ size: 2, sizeAttenuation: false, vertexColors: true }));
+  escena.add(p);
+  return p;
+})();
+
+// nebulosas: manchas difuminadas y translúcidas, colgadas de la cámara para que siempre se vean
+const resplandor = (() => {
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 128, 128);
+  return new THREE.CanvasTexture(c);
+})();
+for (const [x, y, z, esc, hexa, a] of [[-120, 45, 300, 300, '#9c27b0', 0.34], [125, 30, 310, 280, '#00acc1', 0.26],
+  [10, -55, 320, 340, '#651fff', 0.28], [-150, -70, 305, 230, '#0288d1', 0.26], [160, -75, 300, 210, '#e91e63', 0.18]]) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: resplandor, color: hexa, opacity: a, transparent: true,
+    depthWrite: false, blending: THREE.AdditiveBlending }));
+  s.position.set(x, y, -z);
+  s.scale.set(esc, esc, 1);
+  camara.add(s);
+}
+
+// planeta gigante con anillos, luna y planeta lejano
+const planeta = new THREE.Mesh(ESFERA, lit('#b06a34'));
+planeta.position.set(100, 42, -220);
+planeta.scale.setScalar(46);
+const anillo = new THREE.Mesh(new THREE.RingGeometry(0.64, 0.92, 72),
+  plano('#cbb89f', { transparent: true, opacity: 0.5, side: THREE.DoubleSide }));
+anillo.rotation.set(-Math.PI / 2 + 0.17, 0, 0.21);
+planeta.add(anillo);
+camara.add(planeta);
+for (const [x, y, z, esc, hexa] of [[-108, 30, 220, 13, '#9e9e9e'], [-30, 66, 260, 8, '#4dd0e1']]) {
+  const m = new THREE.Mesh(ESFERA, lit(hexa));
+  m.position.set(x, y, -z);
+  m.scale.setScalar(esc);
+  camara.add(m);
+}
+
+// asteroides que giran alrededor del campo
+const ROCA = new THREE.IcosahedronGeometry(0.5, 0);
+const asteroides = [];
+for (let k = 0; k < 16; k++) {
+  const lado = Math.random() < 0.5 ? -1 : 1;
+  const a = new THREE.Mesh(ROCA, lit(['#4a443f', '#5a524a', '#3b3632'][k % 3]));
+  a.position.set(lado * (14 + Math.random() * 16), -6 + Math.random() * 11, -(-6 + Math.random() * 46));
+  a.scale.set(0.6 + Math.random() * 1.4, 0.5 + Math.random() * 0.9, 0.6 + Math.random() * 1.2);
+  a.rotation.set(Math.random() * 6, Math.random() * 6, 0);
+  a.userData.giro = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(0.9);
+  escena.add(a);
+  asteroides.push(a);
+}
+
+// rejilla tenue bajo las naves: da referencia de profundidad
+const rejilla = new THREE.GridHelper(1, 10, '#4fc3f7', '#4fc3f7');
+rejilla.material.transparent = true;
+rejilla.material.opacity = 0.16;
+rejilla.scale.set(LIMITE_X * 2 + 2.5, 1, 20);
+rejilla.position.y = -1.2;
+escena.add(rejilla);
+
+// nave hecha con primitivas: fuselaje, alas, cabina y motor (mira hacia el rival)
+function crearNave(i) {
+  const base = new THREE.Color(HEX[i]);
+  const g = new THREE.Group();
+  const pieza = (geo, material, x, y, z) => {
+    const m = new THREE.Mesh(geo, material);
+    m.position.set(x, y, -z);
+    g.add(m);
+    return m;
+  };
+  pieza(new THREE.ConeGeometry(0.45, 1.9, 14), lit(base), 0, 0, 0.15).rotation.x = -Math.PI / 2;
+  pieza(CUBO, lit(base.clone().multiplyScalar(0.45)), 0, 0, -0.35).scale.set(2.3, 0.08, 0.75);
+  for (const lado of [-1, 1]) {
+    pieza(CUBO, lit(base), lado * 1.15, 0, -0.3).scale.set(0.12, 0.34, 1.05);
+    pieza(CUBO, lit('#cfd8dc'), lado * 0.6, 0.06, 0.2).scale.set(0.1, 0.1, 0.6);
+  }
+  pieza(ESFERA, lit('#e1f5fe'), 0, 0.2, -0.25).scale.set(0.3, 0.26, 0.5);
+  g.userData.motor = pieza(ESFERA, plano('#ffd54f'), 0, 0, -0.9);
+  g.position.set(0, 0, -Z_NAVE[BANDO[i]]);
+  g.rotation.y = BANDO[i] === 0 ? 0 : Math.PI;
+  escena.add(g);
+  return g;
+}
+const naves = [0, 1, 2].map(crearNave);
+
+// --- estado y lógica (igual que naves3d.py) ----------------------------------------
+const j = { estado: 'inicio', modo: Guardado.leer('naves3d_modo', UNO), nivel: Guardado.leer('naves3d_nivel', 2) };
+j.victorias = [0, 0];
+j.balas = [];
+j.particulas = [];
+let temblor = 0;
+const teclas = new Set();
+const dedos = new Map(); // id del dedo -> { nave, x }
+
+function reiniciar() {
+  for (const b of j.balas) escena.remove(b);
+  for (const q of j.particulas) escena.remove(q);
+  j.balas = [];
+  j.particulas = [];
+  const equipo = j.modo === EQUIPO;
+  j.enJuego = equipo ? [0, 1, 2] : [0, 1];
+  j.vidaMax = [VIDA, equipo ? VIDA * VIDA_PC_EQUIPO : VIDA, VIDA];
+  j.vida = [...j.vidaMax];
+  j.cd = [0, 0.7, 0];
+  j.objetivoIA = 0;
+  j.relojIA = 0;
+  j.pausa = false;
+  j.fin = false;
+  j.ganador = null;
+  j.tAyuda = 4;
+  naves.forEach((n, i) => {
+    n.position.x = equipo ? [-3.5, 0, 3.5][i] : 0;
+    n.rotation.z = 0;
+    n.visible = j.enJuego.includes(i);
+  });
+  dedos.clear();
+}
+
+function disparar(i) {
+  const sentido = BANDO[i] === 0 ? 1 : -1;
+  const b = new THREE.Mesh(CUBO, plano(HEX_BALA[i]));
+  b.scale.set(0.14, 0.14, 0.9);
+  b.userData = { zU: Z_NAVE[BANDO[i]] + sentido * 1.4, vz: sentido * VEL_BALA, dueno: i,
+    esquivable: Math.random() < DIFICULTAD[j.nivel][3] }; // la IA decide al verla si la esquiva
+  b.position.set(naves[i].position.x, 0, -b.userData.zU);
+  escena.add(b);
+  j.balas.push(b);
+  Sonido.tocar('disparo');
+}
+
+function moverNave(i, direccion, velocidad, dt) {
+  const n = naves[i];
+  n.position.x = Math.max(-LIMITE_X, Math.min(LIMITE_X, n.position.x + direccion * velocidad * dt));
+  // la nave se inclina hacia donde gira
+  const giro = -direccion * 0.49 * (BANDO[i] === 0 ? 1 : -1);
+  n.rotation.z += (giro - n.rotation.z) * Math.min(1, 10 * dt);
+}
+
+function tocaDisparar(i) {
+  for (const d of dedos.values()) if (d.nave === i) return true;
+  return false;
+}
+
+function moverHumano(i, [izq, der, disp], dt) {
+  if (j.vida[i] <= 0) return;
+  const direccion = (der.some((k) => teclas.has(k)) ? 1 : 0) - (izq.some((k) => teclas.has(k)) ? 1 : 0);
+  moverNave(i, direccion, VEL_NAVE, dt);
+  j.cd[i] = Math.max(0, j.cd[i] - dt);
+  if (j.cd[i] === 0 && (disp.some((k) => teclas.has(k)) || tocaDisparar(i))) {
+    disparar(i);
+    j.cd[i] = ENFRIAMIENTO;
+  }
+}
+
+function moverIA(dt) {
+  const [, vel, cd, , error] = DIFICULTAD[j.nivel];
+  const yo = naves[1];
+  const rivales = j.enJuego.filter((i) => BANDO[i] === 0 && j.vida[i] > 0).map((i) => naves[i]);
+  // 1) esquivar la bala rival más cercana
+  let peligro = null;
+  for (const b of j.balas) {
+    const u = b.userData;
+    if (BANDO[u.dueno] === 0 && u.esquivable && u.zU > Z_NAVE[1] - 9 && Math.abs(b.position.x - yo.position.x) < 1.7) {
+      if (peligro === null || u.zU > peligro.userData.zU) peligro = b;
+    }
+  }
+  let direccion = 0;
+  if (peligro) {
+    direccion = yo.position.x >= peligro.position.x ? 1 : -1;
+    if (yo.position.x < -LIMITE_X + 1.5) direccion = 1;
+    else if (yo.position.x > LIMITE_X - 1.5) direccion = -1;
+  } else {
+    // 2) apuntar al rival más cercano con algo de error
+    j.relojIA -= dt;
+    if (j.relojIA <= 0) {
+      const cerca = rivales.reduce((a, b) => (Math.abs(b.position.x - yo.position.x) < Math.abs(a.position.x - yo.position.x) ? b : a));
+      j.objetivoIA = cerca.position.x + (Math.random() * 2 - 1) * error;
+      j.relojIA = 0.2 + Math.random() * 0.4;
+    }
+    const dif = j.objetivoIA - yo.position.x;
+    if (Math.abs(dif) > 0.25) direccion = dif > 0 ? 1 : -1;
+  }
+  moverNave(1, direccion, vel, dt);
+  // 3) disparar si está alineada (o de vez en cuando por sorpresa)
+  j.cd[1] = Math.max(0, j.cd[1] - dt);
+  const alineada = rivales.some((r) => Math.abs(yo.position.x - r.position.x) < 1.3);
+  if (j.cd[1] === 0 && (alineada || Math.random() < 0.6 * dt)) {
+    disparar(1);
+    j.cd[1] = (cd + Math.random() * 0.15) * (j.modo === EQUIPO ? CADENCIA_PC_EQUIPO : 1);
+  }
+}
+
+function moverBalas(dt) {
+  const vivas = [];
+  for (const b of j.balas) {
+    const u = b.userData;
+    u.zU += u.vz * dt;
+    b.position.z = -u.zU;
+    // la bala golpea a cualquier nave viva del bando contrario
+    const golpe = j.enJuego.find((i) => BANDO[i] !== BANDO[u.dueno] && j.vida[i] > 0
+      && Math.abs(b.position.x - naves[i].position.x) < 1.15 && Math.abs(u.zU - Z_NAVE[BANDO[i]]) < 0.9);
+    if (Math.abs(u.zU) > 16) {
+      escena.remove(b);
+    } else if (golpe !== undefined) {
+      j.vida[golpe]--;
+      explosion(b.position, HEX[golpe], 10);
+      temblor = 0.15;
+      if (j.vida[golpe] <= 0) {
+        explosion(naves[golpe].position, '#ffd54f', 45, 9);
+        naves[golpe].visible = false;
+        Sonido.tocar('explosion');
+      } else {
+        Sonido.tocar('impacto');
+      }
+      if (BANDO[golpe] === 0 && j.modo !== DUELO) vibrar(40);
+      escena.remove(b);
+    } else {
+      vivas.push(b);
+    }
+  }
+  j.balas = vivas;
+  // un bando pierde cuando no le queda ninguna nave
+  const vivo = [0, 1].map((bando) => j.enJuego.some((i) => BANDO[i] === bando && j.vida[i] > 0));
+  if ((!vivo[0] || !vivo[1]) && !j.fin) {
+    j.fin = true;
+    j.ganador = vivo[0] ? 0 : vivo[1] ? 1 : null;
+    if (j.ganador !== null) j.victorias[j.ganador]++;
+    Sonido.tocar(j.ganador === 1 && j.modo !== DUELO ? 'derrota' : 'victoria');
+  }
+}
+
+function explosion(pos, hexa, n, fuerza = 5) {
+  for (let k = 0; k < n; k++) {
+    const q = new THREE.Mesh(CUBO, plano(hexa));
+    q.position.copy(pos);
+    q.scale.setScalar(0.08 + Math.random() * 0.12);
+    q.rotation.set(Math.random() * 6, Math.random() * 6, 0);
+    q.userData = { vel: new THREE.Vector3(Math.random() * 2 - 1, Math.random() * 1.3 - 0.3, Math.random() * 2 - 1).multiplyScalar(fuerza),
+      vida: 0.3 + Math.random() * 0.6 };
+    escena.add(q);
+    j.particulas.push(q);
+  }
+}
+
+function moverEfectos(dt) {
+  j.particulas = j.particulas.filter((q) => {
+    q.position.addScaledVector(q.userData.vel, dt);
+    q.userData.vida -= dt;
+    q.scale.multiplyScalar(Math.max(0, 1 - 2 * dt));
+    if (q.userData.vida > 0) return true;
+    escena.remove(q);
+    return false;
+  });
+  for (const n of naves) n.userData.motor.scale.setScalar(0.3 + Math.random() * 0.2);
+  for (const a of asteroides) {
+    a.rotation.x += a.userData.giro.x * dt;
+    a.rotation.y += a.userData.giro.y * dt;
+    a.rotation.z += a.userData.giro.z * dt;
+  }
+  estrellas.rotation.y += 0.01 * dt;
+  planeta.rotation.y += 0.05 * dt;
+  // sacudida de la cámara al recibir un impacto
+  temblor = Math.max(0, temblor - dt);
+  camara.position.copy(POS_CAMARA);
+  if (temblor > 0) camara.position.add(new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, 0).multiplyScalar(temblor * 5));
+}
+
+// --- marcador ---------------------------------------------------------------------
+const $ = (id) => document.getElementById(id);
+const textos = {};
+function poner(id, valor, prop = 'textContent') {
+  const clave = id + prop;
+  if (textos[clave] === valor) return;
+  textos[clave] = valor;
+  if (prop === 'textContent') $(id).textContent = valor; else $(id).style[prop] = valor;
+}
+
+function actualizarHud() {
+  const v = j.victorias;
+  const nombres = j.modo === UNO ? [`TÚ   victorias: ${v[0]}`, `COMPUTADOR   victorias: ${v[1]}`, '']
+    : j.modo === EQUIPO ? [`JUGADOR 1   victorias del equipo: ${v[0]}`, `COMPUTADOR   victorias: ${v[1]}`, 'JUGADOR 2']
+      : [`JUGADOR 1   victorias: ${v[0]}`, `JUGADOR 2   victorias: ${v[1]}`, ''];
+  for (const i of [0, 1, 2]) {
+    const enJuego = j.estado !== 'inicio' && (j.enJuego || []).includes(i);
+    poner(`vida-${i}`, enJuego ? 'flex' : 'none', 'display');
+    if (!enJuego) continue;
+    const fila = $(`vida-${i}`);
+    const ancho = `${100 * Math.max(0, j.vida[i]) / j.vidaMax[i]}%`;
+    if (fila.dataset.texto !== nombres[i] || fila.dataset.ancho !== ancho) {
+      fila.dataset.texto = nombres[i];
+      fila.dataset.ancho = ancho;
+      fila.querySelector('span').textContent = nombres[i];
+      fila.style.color = HEX[i];
+      const medidor = fila.querySelector('.medidor div');
+      medidor.style.background = HEX[i];
+      medidor.style.width = ancho;
+    }
+  }
+  let titulo = '', sub = '', tinta = '#ffffff';
+  if (j.estado === 'inicio') {
+    titulo = 'DUELO DE NAVES 3D';
+    sub = `${MODO[j.modo]} · Toca para empezar`;
+  } else if (j.fin) {
+    [titulo, tinta] = j.ganador === null ? ['EMPATE', '#ffd54f'] : [FINAL[j.modo][j.ganador], ['#a5d6a7', '#ef9a9a'][j.ganador]];
+    sub = 'Toca para jugar de nuevo';
+  } else if (j.pausa) {
+    titulo = 'PAUSA';
+    sub = 'Toca para seguir';
+  } else if (j.tAyuda > 0) {
+    sub = j.modo === UNO ? 'Arrastra para mover · mantén el dedo para disparar'
+      : j.modo === EQUIPO ? 'Mitad de abajo: izquierda J1 · derecha J2 · arrastra y mantén para disparar'
+        : 'Abajo juega J1 · arriba juega J2 · arrastra y mantén para disparar';
+  }
+  poner('titulo', titulo);
+  poner('titulo', tinta, 'color');
+  poner('subtitulo', sub);
+  poner('info', j.estado === 'inicio' ? '' : MODO[j.modo] + (j.modo === DUELO ? '' : ` · ${DIFICULTAD[j.nivel][0]}`));
+}
+
+// --- controles --------------------------------------------------------------------
+function empezar() {
+  Sonido.iniciar();
+  if (j.estado === 'inicio') { j.estado = 'jugando'; reiniciar(); }
+}
+function alternarPausa() {
+  if (j.estado !== 'jugando' || j.fin) return;
+  j.pausa = !j.pausa;
+  dedos.clear();
+}
+function cambiarModo() {
+  j.modo = (j.modo + 1) % MODO.length;
+  j.victorias = [0, 0];
+  Guardado.escribir('naves3d_modo', j.modo);
+  actualizarBotones();
+  if (j.estado === 'jugando') reiniciar();
+}
+function cambiarNivel(n) {
+  j.nivel = n || (j.nivel % 3) + 1;
+  Guardado.escribir('naves3d_nivel', j.nivel);
+  actualizarBotones();
+}
+function alternarSonido() {
+  Sonido.iniciar();
+  Sonido.alternar();
+  actualizarBotones();
+}
+function actualizarBotones() {
+  $('b-modo').textContent = BOTON_MODO[j.modo];
+  $('b-nivel').textContent = DIFICULTAD[j.nivel][0];
+  $('b-nivel').style.display = j.modo === DUELO ? 'none' : '';
+  $('b-sonido').textContent = Sonido.activo ? '🔊' : '🔇';
+}
+$('b-modo').addEventListener('click', () => { Sonido.iniciar(); cambiarModo(); });
+$('b-nivel').addEventListener('click', () => { Sonido.iniciar(); cambiarNivel(); });
+$('b-sonido').addEventListener('click', alternarSonido);
+$('b-pausa').addEventListener('click', () => { Sonido.iniciar(); alternarPausa(); });
+$('b-reiniciar').addEventListener('click', () => { Sonido.iniciar(); j.estado = 'jugando'; reiniciar(); });
+actualizarBotones();
+
+addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' '].includes(k)) e.preventDefault();
+  teclas.add(k);
+  if (e.repeat) return;
+  if (j.estado === 'inicio') { empezar(); return; }
+  if (k === 'p') alternarPausa();
+  else if (k === 'r') reiniciar();
+  else if (k === 'm') alternarSonido();
+  else if (k === 'j') cambiarModo();
+  else if (['1', '2', '3'].includes(k)) cambiarNivel(Number(k));
+});
+addEventListener('keyup', (e) => teclas.delete(e.key.toLowerCase()));
+addEventListener('blur', () => teclas.clear());
+
+// qué nave controla un dedo según dónde se apoya en la pantalla
+function naveDelDedo(e) {
+  const r = zona.getBoundingClientRect();
+  const abajo = e.clientY - r.top >= r.height / 2, izquierda = e.clientX - r.left < r.width / 2;
+  if (j.modo === UNO) return 0;
+  if (j.modo === DUELO) return abajo ? 0 : 1;
+  if (!abajo) return null; // en equipo la mitad de arriba es del computador
+  return izquierda ? 0 : 2;
+}
+zona.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  if (j.estado === 'inicio') { empezar(); return; }
+  Sonido.iniciar();
+  if (j.fin) { reiniciar(); return; }
+  if (j.pausa) { alternarPausa(); return; }
+  const nave = naveDelDedo(e);
+  if (nave === null) return;
+  dedos.set(e.pointerId, { nave, x: e.clientX });
+  try { zona.setPointerCapture(e.pointerId); } catch { /* sin captura */ }
+});
+zona.addEventListener('pointermove', (e) => {
+  const d = dedos.get(e.pointerId);
+  if (!d || j.pausa || j.fin) return;
+  if (j.vida[d.nave] > 0) {
+    const n = naves[d.nave];
+    const dx = (e.clientX - d.x) / Math.max(1, zona.clientWidth) * (2 * LIMITE_X + 3) * ARRASTRE;
+    n.position.x = Math.max(-LIMITE_X, Math.min(LIMITE_X, n.position.x + dx));
+  }
+  d.x = e.clientX;
+});
+const soltarDedo = (e) => dedos.delete(e.pointerId);
+zona.addEventListener('pointerup', soltarDedo);
+zona.addEventListener('pointercancel', soltarDedo);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && j.estado === 'jugando' && !j.fin && !j.pausa) alternarPausa();
+});
+
+// --- bucle --------------------------------------------------------------------------
+reiniciar();
+naves.forEach((n, i) => { n.visible = i < 2; });
+bucle((dt) => {
+  if (!j.pausa) {
+    if (j.estado === 'jugando' && !j.fin) {
+      j.tAyuda -= dt;
+      if (j.modo === UNO) {
+        moverHumano(0, TECLAS_SOLO, dt);
+      } else {
+        moverHumano(0, TECLAS_J1, dt);
+        moverHumano(j.modo === EQUIPO ? 2 : 1, TECLAS_J2, dt);
+      }
+      if (j.modo !== DUELO) moverIA(dt);
+      moverBalas(dt);
+    }
+    moverEfectos(dt);
+  }
+  actualizarHud();
+  renderer.render(escena, camara);
+});
+window.juego = { j, naves, reiniciar, dedos, teclas, Sonido };
+</script>
+</body>
+</html>

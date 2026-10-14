@@ -12,9 +12,14 @@ Están en la carpeta [`docs/`](docs/) y no necesitan instalar nada: se abren en 
 | **Bloques** | botones ◀ ▼ ▶, girar, soltar y guardar; tocar el tablero también gira | 1 jugador, con récord guardado |
 | **Pong** | arrastrar el dedo arriba y abajo | contra el PC (3 dificultades) o 2 jugadores, cada uno en su mitad |
 | **Duelo de naves** | arrastrar para mover; con el dedo apoyado dispara | tú vs PC, 2 en equipo vs PC, 1 vs 1 en la misma tablet |
+| **Naves 3D** | igual que el duelo de naves | los mismos tres modos, en 3D |
+| **Plataformas 3D** | palanca en pantalla para moverse (a fondo corre) y botón para saltar | 1 jugador, con música |
 
 En el computador se juegan con el teclado (la ayuda aparece bajo cada juego).
 Todo el sonido se sintetiza en el navegador; no hay archivos de audio.
+Los juegos 3D usan [three.js](https://threejs.org), que se carga desde internet al abrirlos.
+
+Publicados en: https://naderzon1.github.io/Python_juegos/
 
 Para publicarlas con GitHub Pages: *Settings → Pages → Deploy from a branch → `main` / `/docs`*.
 

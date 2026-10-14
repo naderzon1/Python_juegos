@@ -167,7 +167,7 @@ function moverBalas() {
       } else {
         Sonido.tocar('impacto');
       }
-      if (navigator.vibrate && BANDO[golpe] === 0 && j.modo !== DUELO) navigator.vibrate(40);
+      if (BANDO[golpe] === 0 && j.modo !== DUELO) vibrar(40);
       continue;
     }
     vivas.push(b);

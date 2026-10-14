@@ -174,6 +174,14 @@ function botonMantener(boton, alPulsar, alSoltar = () => {}) {
   boton.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
+// Vibración corta al recibir un golpe; solo si ya se tocó la pantalla (el navegador la bloquea antes,
+// y en el computador no tiene sentido).
+let tocoPantalla = false;
+addEventListener('pointerdown', (e) => { if (e.pointerType === 'touch') tocoPantalla = true; }, true);
+function vibrar(ms) {
+  if (tocoPantalla && navigator.vibrate) navigator.vibrate(ms);
+}
+
 // Llama a paso(dt) en cada cuadro de la pantalla; dt en segundos, acotado si la pestaña estuvo oculta.
 function bucle(paso) {
   let antes = performance.now();
