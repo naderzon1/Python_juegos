@@ -19,9 +19,10 @@ En el computador se juegan con el teclado (la ayuda aparece bajo cada juego).
 Todo el sonido se sintetiza en el navegador; no hay archivos de audio.
 Los juegos 3D usan [three.js](https://threejs.org), que se carga desde internet al abrirlos.
 
-**Emulador N64** (`docs/n64.html`): abre juegos de Nintendo 64 que elijas desde tu aparato
-(.z64, .n64, .v64 o .zip). Usa [EmulatorJS](https://emulatorjs.org) (código abierto, GPL-3.0) con el núcleo
-mupen64plus, cargado desde su servidor. No incluye juegos: usa copias de tus cartuchos o homebrew libre.
+**Emuladores de Nintendo 64 y Super Nintendo** (`docs/emulador.html?s=n64` y `?s=snes`): abren juegos que
+elijas desde tu aparato (.z64, .n64, .v64, .sfc, .smc o dentro de un .zip). Usan [EmulatorJS](https://emulatorjs.org)
+(código abierto, GPL-3.0) con los núcleos mupen64plus y snes9x, cargados desde su servidor.
+No incluyen juegos: usa copias de tus cartuchos o homebrew libre.
 
 Publicados en: https://naderzon1.github.io/Python_juegos/
 

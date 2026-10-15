@@ -7,3 +7,6 @@ __pycache__/
 sonidos_plataformas/
 bloques_record.txt
 *.keras
+
+# juegos homebrew descargados para probar el emulador (no se publican en el repositorio)
+juegos_n64/

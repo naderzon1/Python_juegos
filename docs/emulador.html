@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#101624">
+<title>Emulador</title>
+<link rel="stylesheet" href="estilo.css">
+<style>
+  /* la pantalla de elegir juego sí necesita poder tocarse y seleccionarse con normalidad */
+  .elegir {
+    max-width: 520px;
+    margin: auto;
+    padding: 24px 18px;
+    text-align: center;
+    touch-action: auto;
+    user-select: text;
+    -webkit-user-select: text;
+    overflow-y: auto;
+    max-height: 100%;
+  }
+  .elegir .icono { font-size: 54px; }
+  .elegir h2 { font-size: 22px; margin: 8px 0 10px; }
+  .elegir p { color: var(--tenue); font-size: 15px; line-height: 1.5; margin: 0 0 14px; }
+  .elegir p.nota { font-size: 13px; }
+  .elegir p.error { color: #ef9a9a; font-weight: 600; }
+  .boton-grande {
+    display: inline-block;
+    margin: 6px 0 16px;
+    padding: 16px 28px;
+    border-radius: 14px;
+    background: var(--acento);
+    color: #08121c;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .sistemas { display: flex; gap: 8px; justify-content: center; margin: 0 0 16px; }
+  .sistemas a {
+    padding: 8px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--borde);
+    color: var(--texto);
+    text-decoration: none;
+    font-size: 14px;
+  }
+  .sistemas a.activo { border-color: var(--acento); background: var(--boton); }
+  .elegir.arrastrando { outline: 3px dashed var(--acento); outline-offset: 6px; border-radius: 16px; }
+  /* se oculta con el atributo hidden: EmulatorJS reemplaza el atributo style del contenedor */
+  #juego { width: 100%; height: 100%; }
+</style>
+</head>
+<body class="juego">
+<header class="barra">
+  <a href="index.html" aria-label="Volver al menú">⌂</a>
+  <h1 id="titulo">Emulador</h1>
+  <button id="b-cambiar" hidden>Cambiar juego</button>
+</header>
+<div class="zona" id="zona">
+  <section class="elegir" id="elegir">
+    <div class="icono" id="icono">🎮</div>
+    <h2 id="nombre"></h2>
+    <nav class="sistemas" aria-label="Consola">
+      <a href="?s=n64" data-s="n64">Nintendo 64</a>
+      <a href="?s=snes" data-s="snes">Super Nintendo</a>
+    </nav>
+    <p>Elige un archivo de juego (<b id="tipos"></b>, también dentro de un <b>.zip</b>)
+      guardado en tu teléfono, tablet o computador.</p>
+    <label class="boton-grande">Elegir juego<input type="file" id="archivo" hidden></label>
+    <p class="nota">En el computador también puedes arrastrar el archivo aquí.</p>
+    <p class="nota">El juego no se sube a ningún lado: se ejecuta en tu propio aparato y las partidas guardadas quedan en este navegador.
+      La primera vez se descarga el emulador (unos pocos MB), así que necesitas internet.</p>
+    <p class="nota">Usa copias de cartuchos que tengas o juegos caseros (homebrew) de distribución libre.</p>
+    <p class="nota error" id="error"></p>
+  </section>
+  <div id="juego" hidden></div>
+</div>
+<p class="ayuda" id="ayuda"></p>
+
+<script>
+'use strict';
+// El emulador es EmulatorJS (código abierto, GPL-3.0), cargado desde su servidor oficial.
+// Se fija la versión para que no cambie sin aviso.
+const EMULADOR = 'https://cdn.emulatorjs.org/4.2.3/data/';
+const SISTEMAS = {
+  n64: { nombre: 'Nintendo 64', titulo: 'Emulador N64', nucleo: 'n64', motor: 'mupen64plus', icono: '🎮',
+    extensiones: ['z64', 'n64', 'v64'], tipos: '.z64, .n64 o .v64' },
+  snes: { nombre: 'Super Nintendo', titulo: 'Emulador Super Nintendo', nucleo: 'snes', motor: 'snes9x', icono: '🕹️',
+    extensiones: ['sfc', 'smc', 'fig', 'swc'], tipos: '.sfc o .smc' },
+};
+const COMPRIMIDOS = ['zip', '7z'];
+
+const clave = new URLSearchParams(location.search).get('s');
+const sistema = SISTEMAS[clave] || SISTEMAS.n64;
+const $ = (id) => document.getElementById(id);
+const elegir = $('elegir'), archivo = $('archivo'), error = $('error'), juego = $('juego'), cambiar = $('b-cambiar');
+
+document.title = sistema.titulo;
+$('titulo').textContent = sistema.titulo;
+$('nombre').textContent = `${sistema.nombre} en el navegador`;
+$('icono').textContent = sistema.icono;
+$('tipos').textContent = sistema.tipos;
+archivo.accept = [...sistema.extensiones, ...COMPRIMIDOS].map((e) => '.' + e).join(',');
+$('ayuda').textContent = 'En pantallas táctiles aparece un mando en pantalla. Con teclado o con un mando USB o Bluetooth, '
+  + `los botones se configuran en el menú del emulador (ícono de control). Emulador: EmulatorJS con el núcleo ${sistema.motor}.`;
+for (const a of document.querySelectorAll('.sistemas a')) a.classList.toggle('activo', SISTEMAS[a.dataset.s] === sistema);
+
+function cargar(file) {
+  if (!file) return;
+  const extension = file.name.split('.').pop().toLowerCase();
+  if (!sistema.extensiones.includes(extension) && !COMPRIMIDOS.includes(extension)) {
+    const otro = Object.values(SISTEMAS).find((s) => s.extensiones.includes(extension));
+    error.textContent = otro
+      ? `“${file.name}” es un juego de ${otro.nombre}: cambia de consola arriba.`
+      : `“${file.name}” no parece un juego de ${sistema.nombre}. Elige un archivo ${sistema.tipos}.`;
+    return;
+  }
+  error.textContent = '';
+  elegir.hidden = true;
+  juego.hidden = false;
+  cambiar.hidden = false;
+
+  // configuración que lee EmulatorJS al cargar
+  window.EJS_player = '#juego';
+  window.EJS_core = sistema.nucleo;
+  window.EJS_gameUrl = file;
+  window.EJS_gameName = file.name.replace(/\.[^.]+$/, ''); // nombre con el que se guardan las partidas
+  window.EJS_pathtodata = EMULADOR;
+  window.EJS_language = 'es-ES';
+  window.EJS_startOnLoaded = true;
+  window.EJS_color = '#4fc3f7';
+  window.EJS_backgroundColor = '#101624';
+
+  const s = document.createElement('script');
+  s.src = EMULADOR + 'loader.js';
+  s.onerror = () => {
+    elegir.hidden = false;
+    juego.hidden = true;
+    error.textContent = 'No se pudo descargar el emulador. Revisa la conexión a internet y vuelve a intentarlo.';
+  };
+  document.body.appendChild(s);
+}
+
+archivo.addEventListener('change', () => cargar(archivo.files[0]));
+
+// arrastrar y soltar en el computador
+for (const tipo of ['dragenter', 'dragover']) {
+  elegir.addEventListener(tipo, (e) => { e.preventDefault(); elegir.classList.add('arrastrando'); });
+}
+elegir.addEventListener('dragleave', () => elegir.classList.remove('arrastrando'));
+elegir.addEventListener('drop', (e) => {
+  e.preventDefault();
+  elegir.classList.remove('arrastrando');
+  cargar(e.dataTransfer.files[0]);
+});
+
+// el emulador no se puede reiniciar con otro juego en la misma página: se recarga
+cambiar.addEventListener('click', () => location.reload());
+</script>
+</body>
+</html>
