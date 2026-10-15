@@ -43,6 +43,8 @@
     cursor: pointer;
   }
   .opciones button.activo { border-color: var(--acento); background: var(--boton-pulsado); }
+  .opciones.pistas { flex-wrap: wrap; }
+  .opciones.pistas button { flex: 1 1 22%; min-height: 40px; font-size: 13px; }
   .etiqueta { text-align: left; font-size: 12px; color: var(--tenue); margin: 0 0 4px 2px; }
   .arrancar {
     width: 100%;
@@ -113,11 +115,15 @@
   <div class="capa" id="menu">
     <div class="tarjeta-menu">
       <h2>TURBO RUTA</h2>
-      <p>Carreras de 4 vueltas contra 10 rivales. Usa el nitro con cabeza: solo hay 3 por carrera.</p>
+      <p>Carreras de 4 vueltas contra 10 rivales en 7 pistas. Usa el nitro con cabeza: solo hay 3 por carrera.</p>
       <div class="etiqueta">Jugadores</div>
       <div class="opciones" data-opcion="jugadores"><button data-valor="1">1 jugador</button><button data-valor="2">2 jugadores</button></div>
       <div class="etiqueta">Pista</div>
-      <div class="opciones" data-opcion="pista"><button data-valor="0">Valle Verde</button><button data-valor="1">Desierto</button><button data-valor="2">Montaña</button></div>
+      <div class="opciones pistas" data-opcion="pista">
+        <button data-valor="0">Valle Verde</button><button data-valor="1">Desierto</button><button data-valor="2">Montaña</button>
+        <button data-valor="3">Ciudad</button><button data-valor="4">Playa</button><button data-valor="5">Otoño</button>
+        <button data-valor="6">Volcán</button>
+      </div>
       <div class="etiqueta">Rivales</div>
       <div class="opciones" data-opcion="dificultad"><button data-valor="0">Fáciles</button><button data-valor="1">Normales</button><button data-valor="2">Difíciles</button></div>
       <button class="arrancar" id="b-arrancar">¡A CORRER!</button>
@@ -174,6 +180,26 @@ const PISTAS = [
     adornos: ['pino', 'pino', 'pino', 'roca', 'poste'],
     tramos: [[10, 10, 10, 0, 0], [25, 25, 25, -5, 40], [25, 25, 25, 5, -20], [25, 50, 25, 0, 60], [25, 25, 25, 6, -60],
       [25, 25, 25, -6, 20], [25, 50, 25, 0, -20], [25, 25, 25, 4, 30], [25, 25, 25, -5, -30], [50, 50, 50, 0, 0]] },
+  { nombre: 'Ciudad', fondo: 'ciudad', cielo: ['#05070f', '#1b2340'], sol: '#fff9c4', cerros: ['#262c45', '#151a2e'], niebla: '#1b2340',
+    cesped: ['#2e2e33', '#28282d'], borde: ['#ffeb3b', '#212121'], pista: ['#3c3c43', '#37373e'], linea: '#ffffff',
+    adornos: ['edificio', 'edificio', 'farola', 'farola', 'cartel'],
+    tramos: [[10, 10, 10, 0, 0], [10, 30, 10, 6, 0], [30, 40, 30, 0, 0], [10, 30, 10, -6, 0], [20, 60, 20, 0, 0],
+      [10, 20, 10, 5, 10], [10, 20, 10, -5, -10], [30, 60, 30, 0, 0], [10, 30, 10, 6, 0], [50, 50, 50, 0, 0]] },
+  { nombre: 'Playa', fondo: 'mar', cielo: ['#ff7e5f', '#feb47b'], sol: '#fff3e0', cerros: ['#2a6f97', '#7a9e8f'], niebla: '#ffc8a2',
+    cesped: ['#f1d9a7', '#ead09a'], borde: ['#ffffff', '#ff7043'], pista: ['#7b7b80', '#747479'], linea: '#ffffff',
+    adornos: ['palmera', 'palmera', 'sombrilla', 'sombrilla', 'roca'],
+    tramos: [[10, 10, 10, 0, 0], [50, 50, 50, 1, 15], [50, 50, 50, -1, -15], [25, 75, 25, 0, 0], [50, 50, 50, 2, 20],
+      [50, 50, 50, -2, -20], [25, 50, 25, 3, 0], [50, 100, 50, 0, 0]] },
+  { nombre: 'Otoño', cielo: ['#7fa7c9', '#e7d8c3'], sol: '#fff8e1', cerros: ['#b5651d', '#8b4513'], niebla: '#e8d3b5',
+    cesped: ['#c7a45a', '#b8954c'], borde: ['#f5f5f5', '#6d4c41'], pista: ['#5f5a55', '#59544f'], linea: '#ffe082',
+    adornos: ['otono', 'otono', 'otono', 'arbol', 'poste'],
+    tramos: [[10, 10, 10, 0, 0], [25, 25, 25, 3, 30], [25, 25, 25, -4, -10], [25, 25, 25, 4, -20], [25, 50, 25, 0, 40],
+      [25, 25, 25, -3, -40], [25, 25, 25, 5, 10], [25, 25, 25, -5, -10], [50, 50, 50, 0, 0]] },
+  { nombre: 'Volcán', cielo: ['#2b0f0f', '#a33a1f'], sol: '#ffab40', cerros: ['#3b2a2a', '#241818'], niebla: '#5a2a1f',
+    cesped: ['#2a2224', '#231c1e'], borde: ['#ff6d00', '#212121'], pista: ['#4a4446', '#444042'], linea: '#ffab40',
+    adornos: ['lava', 'lava', 'roca', 'poste'],
+    tramos: [[10, 10, 10, 0, 0], [25, 25, 25, 6, 50], [25, 25, 25, -6, -30], [10, 10, 10, 0, 60], [25, 25, 25, -7, -80],
+      [25, 50, 25, 4, 20], [25, 25, 25, -5, 0], [25, 25, 25, 7, -20], [50, 50, 50, 0, 0]] },
 ];
 
 // --- sonido: música y efectos propios ---
@@ -249,7 +275,8 @@ function construirPista(indice) {
     for (const lado of [-1, 1]) {
       if (azar() < 0.35) continue;
       const tipo = pista.adornos[Math.floor(azar() * pista.adornos.length)];
-      segs[n].adornos.push({ tipo, x: lado * (1.35 + azar() * 1.6) });
+      const lejos = tipo === 'edificio' ? 2.3 + azar() * 0.8 : 1.35 + azar() * 1.6; // los edificios, apartados de la pista
+      segs[n].adornos.push({ tipo, x: lado * lejos, v: azar() });
     }
   }
   for (let n = LINEA - 6; n < LINEA + 8; n += 7) { // carteles de salida
@@ -497,10 +524,60 @@ function poligono(x1, y1, x2, y2, x3, y3, x4, y4, color) {
 }
 
 // ancho de cada adorno, en medios anchos de pista (también se usa para los choques)
-const ANCHO = { arbol: 0.55, pino: 0.4, palmera: 0.45, cactus: 0.25, roca: 0.45, cartel: 0.7, poste: 0.12 };
-function dibujarAdorno(tipo, x, y, w) {
+const ANCHO = { arbol: 0.55, pino: 0.4, palmera: 0.45, cactus: 0.25, roca: 0.45, cartel: 0.7, poste: 0.12,
+  edificio: 1.4, farola: 0.12, otono: 0.55, lava: 0.5, sombrilla: 0.5 };
+// v (entre 0 y 1) varía el color o el diseño de cada adorno
+function dibujarAdorno(tipo, x, y, w, v = 0.5) {
   const h = w; // la mayoría son tan altos como anchos
   switch (tipo) {
+    case 'edificio': {
+      const alto = w * (1.6 + v * 1.4);
+      g.fillStyle = ['#2c3350', '#3a2f4f', '#263f4a', '#41384a'][Math.floor(v * 4)];
+      g.fillRect(x - w / 2, y - alto, w, alto);
+      if (w > 12) { // ventanas: algunas encendidas, siempre las mismas para cada edificio
+        const cols = 4, filas = Math.max(3, Math.round(alto / w * 4));
+        const cw = w / (cols * 2 + 1), ch = alto / (filas * 2 + 1);
+        for (let f = 0; f < filas; f++) {
+          for (let k = 0; k < cols; k++) {
+            const encendida = ((f * 7 + k * 13 + Math.floor(v * 97)) % 5) < 2;
+            g.fillStyle = encendida ? '#ffe082' : '#1a1f33';
+            g.fillRect(x - w / 2 + cw * (1 + k * 2), y - alto + ch * (1 + f * 2), cw, ch);
+          }
+        }
+      }
+      break;
+    }
+    case 'farola':
+      g.fillStyle = '#90a4ae'; g.fillRect(x - w * 0.15, y - w * 7, w * 0.3, w * 7);
+      g.fillRect(x - w * 0.15, y - w * 7, w * 1.8, w * 0.3);
+      g.globalAlpha = 0.35; g.fillStyle = '#fff59d';
+      g.beginPath(); g.arc(x + w * 1.6, y - w * 6.6, w * 1.6, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = 1; g.fillStyle = '#fffde7';
+      g.beginPath(); g.arc(x + w * 1.6, y - w * 6.7, w * 0.4, 0, Math.PI * 2); g.fill();
+      break;
+    case 'otono':
+      g.fillStyle = '#5d4037'; g.fillRect(x - w * 0.08, y - h * 0.55, w * 0.16, h * 0.55);
+      g.fillStyle = v < 0.5 ? '#d84315' : '#ef6c00'; g.beginPath(); g.arc(x, y - h * 0.85, w * 0.45, 0, Math.PI * 2); g.fill();
+      g.fillStyle = v < 0.5 ? '#ff8f00' : '#fbc02d'; g.beginPath(); g.arc(x + w * 0.12, y - h * 0.97, w * 0.24, 0, Math.PI * 2); g.fill();
+      break;
+    case 'lava':
+      g.fillStyle = '#1b1416'; g.beginPath(); g.ellipse(x, y - h * 0.25, w * 0.5, h * 0.35, 0, Math.PI, 0); g.fill();
+      g.strokeStyle = '#ff6d00'; g.lineWidth = Math.max(1, w * 0.05);
+      g.beginPath(); g.moveTo(x - w * 0.3, y - h * 0.1); g.lineTo(x - w * 0.1, y - h * 0.35); g.lineTo(x + w * 0.05, y - h * 0.2);
+      g.lineTo(x + w * 0.25, y - h * 0.45); g.stroke();
+      g.globalAlpha = 0.3; g.fillStyle = '#ff9100';
+      g.beginPath(); g.ellipse(x, y - h * 0.05, w * 0.55, h * 0.12, 0, 0, Math.PI * 2); g.fill();
+      g.globalAlpha = 1;
+      break;
+    case 'sombrilla':
+      g.fillStyle = '#eceff1'; g.fillRect(x - w * 0.03, y - h * 0.9, w * 0.06, h * 0.9);
+      for (let k = 0; k < 6; k++) {
+        g.fillStyle = k % 2 ? '#ffffff' : (v < 0.5 ? '#e53935' : '#1e88e5');
+        g.beginPath(); g.moveTo(x, y - h * 0.85);
+        g.arc(x, y - h * 0.85, w * 0.5, Math.PI + k * Math.PI / 6, Math.PI + (k + 1) * Math.PI / 6);
+        g.closePath(); g.fill();
+      }
+      break;
     case 'arbol':
       g.fillStyle = '#6d4c41'; g.fillRect(x - w * 0.08, y - h * 0.55, w * 0.16, h * 0.55);
       g.fillStyle = '#2e7d32'; g.beginPath(); g.arc(x, y - h * 0.85, w * 0.45, 0, Math.PI * 2); g.fill();
@@ -601,6 +678,34 @@ function dibujarFondo(p, w, h) {
   const desplaza = ((p.fondo % 1) + 1) % 1;
   g.fillStyle = pista.sol;
   g.beginPath(); g.arc(w * (0.75 - desplaza * 0.3 + 1) % w, h * 0.16, h * 0.07, 0, Math.PI * 2); g.fill();
+  if (pista.fondo === 'ciudad') { // dos capas de edificios; la cercana con ventanas encendidas
+    pista.cerros.forEach((color, capa) => {
+      const base = h * 0.52, mov = desplaza * w * (capa ? 1.6 : 0.8), ancho = w / (capa ? 9 : 14);
+      for (let k = -1; k < (capa ? 10 : 15); k++) {
+        const x = ((k * ancho - mov) % w + w) % w - ancho;
+        const n = (k + 40) * (capa ? 7 : 3);
+        const alto = h * (capa ? 0.1 : 0.16) * (0.6 + ((n * 37) % 10) / 10);
+        g.fillStyle = color;
+        g.fillRect(x, base - alto, ancho * 0.92, alto + h);
+        if (capa) {
+          g.fillStyle = '#ffd54f';
+          for (let f = 0; f < 4; f++) if ((n + f) % 3 === 0) g.fillRect(x + ancho * 0.3, base - alto + alto * (0.2 + f * 0.2), ancho * 0.12, alto * 0.06);
+        }
+      }
+    });
+    return;
+  }
+  if (pista.fondo === 'mar') { // islas lejanas y mar con brillos
+    g.fillStyle = pista.cerros[1];
+    g.beginPath(); g.moveTo(0, h * 0.5);
+    for (let x = 0; x <= w; x += 8) g.lineTo(x, h * 0.5 - h * 0.04 * Math.max(0, Math.sin((x + desplaza * w) / w * Math.PI * 6)));
+    g.lineTo(w, h * 0.5); g.fill();
+    g.fillStyle = pista.cerros[0];
+    g.fillRect(0, h * 0.5, w, h);
+    g.fillStyle = 'rgba(255, 243, 224, 0.5)';
+    for (let k = 0; k < 14; k++) g.fillRect(((k * 97 + desplaza * w * 1.5) % w), h * (0.52 + (k % 5) * 0.02), w * 0.03, 1.5);
+    return;
+  }
   // dos capas de cerros que se mueven distinto en las curvas
   pista.cerros.forEach((color, capa) => {
     const base = h * (0.5 + capa * 0.02), alto = h * (0.16 - capa * 0.05), mov = desplaza * w * (capa ? 1.6 : 0.8);
@@ -675,7 +780,7 @@ function dibujarVista(p, w, h) {
     g.clip();
     for (const ad of s.adornos) {
       const ancho = (ANCHO[ad.tipo] || 0.4) * a.escala * ANCHO_PISTA * w / 2;
-      if (ancho > 1) dibujarAdorno(ad.tipo, a.x + a.escala * ad.x * ANCHO_PISTA * w / 2, a.y, ancho);
+      if (ancho > 1) dibujarAdorno(ad.tipo, a.x + a.escala * ad.x * ANCHO_PISTA * w / 2, a.y, ancho, ad.v);
     }
     for (const r of c.corredores) {
       if (r === p || tramoEn(r.z) !== s) continue;
