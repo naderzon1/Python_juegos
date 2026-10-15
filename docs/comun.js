@@ -111,6 +111,30 @@ const Sonido = (() => {
         fuenteMusica = null;
       }
     },
+    // sonido continuo de motor: un oscilador cuyo tono se ajusta a la velocidad
+    crearMotor() {
+      if (!ctx) return null;
+      const osc = ctx.createOscillator();
+      osc.type = 'sawtooth';
+      const filtro = ctx.createBiquadFilter();
+      filtro.type = 'lowpass';
+      filtro.frequency.value = 900;
+      const vol = ctx.createGain();
+      vol.gain.value = 0;
+      osc.connect(filtro);
+      filtro.connect(vol);
+      vol.connect(general);
+      osc.start();
+      return {
+        ajustar(frecuencia, volumen) {
+          osc.frequency.setTargetAtTime(frecuencia, ctx.currentTime, 0.05);
+          vol.gain.setTargetAtTime(volumen, ctx.currentTime, 0.05);
+        },
+        parar() {
+          try { osc.stop(); } catch { /* ya estaba detenido */ }
+        },
+      };
+    },
     get activo() { return activo; },
     get listo() { return !!ctx; },
     duracion(nombre) { return buffers[nombre] ? buffers[nombre].duration : 0; },

@@ -1,0 +1,865 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#101624">
+<title>Turbo Ruta</title>
+<link rel="stylesheet" href="estilo.css">
+<style>
+  .zona { position: relative; }
+  /* menú y resultados encima del juego */
+  .capa {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    background: rgba(8, 12, 22, 0.78);
+    z-index: 3;
+    overflow-y: auto;
+  }
+  .tarjeta-menu {
+    width: min(460px, 100%);
+    text-align: center;
+    padding: 18px 16px;
+    border-radius: 16px;
+    background: var(--panel);
+    border: 1px solid var(--borde);
+  }
+  .tarjeta-menu h2 { margin: 0 0 4px; font-size: 30px; letter-spacing: 2px; color: #ffd54f; font-style: italic; }
+  .tarjeta-menu p { margin: 0 0 12px; color: var(--tenue); font-size: 14px; }
+  .opciones { display: flex; gap: 6px; margin: 0 0 12px; }
+  .opciones button {
+    flex: 1;
+    min-height: 44px;
+    border-radius: 10px;
+    border: 1px solid var(--borde);
+    background: var(--boton);
+    color: var(--texto);
+    font: inherit;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .opciones button.activo { border-color: var(--acento); background: var(--boton-pulsado); }
+  .etiqueta { text-align: left; font-size: 12px; color: var(--tenue); margin: 0 0 4px 2px; }
+  .arrancar {
+    width: 100%;
+    min-height: 54px;
+    margin-top: 4px;
+    border: 0;
+    border-radius: 12px;
+    background: #ffd54f;
+    color: #1a1200;
+    font: inherit;
+    font-size: 20px;
+    font-weight: 800;
+    cursor: pointer;
+  }
+  .resultado { font-size: 16px; line-height: 1.7; margin: 6px 0 14px; }
+  .resultado b { color: #ffd54f; }
+  /* mandos táctiles: uno por jugador; el del jugador 2 va girado para quien está enfrente */
+  .mandos {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    padding: 8px;
+    pointer-events: none;
+    z-index: 2;
+  }
+  .mandos.arriba { top: 0; bottom: auto; transform: rotate(180deg); }
+  .mandos .grupo { display: flex; gap: 8px; align-items: flex-end; pointer-events: auto; }
+  .mandos button {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    background: rgba(16, 22, 36, 0.55);
+    color: #fff;
+    font: inherit;
+    font-size: 22px;
+    font-weight: 700;
+    touch-action: none;
+  }
+  .mandos button.chico { width: 54px; height: 54px; font-size: 11px; }
+  .mandos button.grande { width: 78px; height: 78px; font-size: 12px; background: rgba(46, 125, 50, 0.6); }
+  .mandos button.pulsado { background: rgba(79, 195, 247, 0.6); border-color: #fff; }
+  @media (hover: hover) and (pointer: fine) { .mandos { display: none; } }
+</style>
+</head>
+<body class="juego apaisado">
+<header class="barra">
+  <a href="index.html" aria-label="Volver al menú">⌂</a>
+  <h1>Turbo Ruta</h1>
+  <button id="b-menu">Menú</button>
+  <button id="b-sonido" aria-label="Sonido">🔊</button>
+  <button id="b-pausa" aria-label="Pausa">⏸</button>
+</header>
+<div class="zona" id="zona">
+  <canvas id="lienzo"></canvas>
+  <div class="mandos arriba" id="mandos-1" hidden>
+    <div class="grupo"><button data-accion="izq">◀</button><button data-accion="der">▶</button></div>
+    <div class="grupo"><button class="chico" data-accion="nitro">NITRO</button><button class="chico" data-accion="freno">FRENO</button><button class="grande" data-accion="acel">ACELERAR</button></div>
+  </div>
+  <div class="mandos" id="mandos-0" hidden>
+    <div class="grupo"><button data-accion="izq">◀</button><button data-accion="der">▶</button></div>
+    <div class="grupo"><button class="chico" data-accion="nitro">NITRO</button><button class="chico" data-accion="freno">FRENO</button><button class="grande" data-accion="acel">ACELERAR</button></div>
+  </div>
+  <div class="capa" id="menu">
+    <div class="tarjeta-menu">
+      <h2>TURBO RUTA</h2>
+      <p>Carreras de 4 vueltas contra 10 rivales. Usa el nitro con cabeza: solo hay 3 por carrera.</p>
+      <div class="etiqueta">Jugadores</div>
+      <div class="opciones" data-opcion="jugadores"><button data-valor="1">1 jugador</button><button data-valor="2">2 jugadores</button></div>
+      <div class="etiqueta">Pista</div>
+      <div class="opciones" data-opcion="pista"><button data-valor="0">Valle Verde</button><button data-valor="1">Desierto</button><button data-valor="2">Montaña</button></div>
+      <div class="etiqueta">Rivales</div>
+      <div class="opciones" data-opcion="dificultad"><button data-valor="0">Fáciles</button><button data-valor="1">Normales</button><button data-valor="2">Difíciles</button></div>
+      <button class="arrancar" id="b-arrancar">¡A CORRER!</button>
+    </div>
+  </div>
+  <div class="capa" id="resultados" hidden>
+    <div class="tarjeta-menu">
+      <h2>META</h2>
+      <div class="resultado" id="texto-resultados"></div>
+      <div class="opciones"><button id="b-otra">Correr otra vez</button><button id="b-volver">Cambiar pista</button></div>
+    </div>
+  </div>
+</div>
+<p class="girar">Gira el teléfono para ver la carretera más grande.</p>
+<p class="ayuda">1 jugador: flechas o W A S D, nitro con Espacio · 2 jugadores: J1 W A S D + Espacio, J2 flechas + Enter · P pausa · M sonido · R repetir carrera</p>
+
+<script src="comun.js"></script>
+<script>
+'use strict';
+// --- constantes de la carretera (técnica clásica de "pseudo 3D": tramos que se proyectan en pantalla) ---
+const SEG = 200;                 // largo de cada tramo de pista
+const BANDA = 3;                 // tramos por franja de color
+const ANCHO_PISTA = 2000;        // medio ancho de la pista
+const CARRILES = 3;
+const ALTO_CAM = 1000;
+const PROF_CAM = 1 / Math.tan(50 * Math.PI / 180);   // campo de visión de 100°
+const Z_JUGADOR = ALTO_CAM * PROF_CAM;                // distancia entre la cámara y tu auto
+const DIBUJO = 260;              // tramos que se dibujan hacia adelante
+const VEL_MAX = SEG * 60;        // un tramo por cuadro, a 60 cuadros por segundo
+const ACEL = VEL_MAX / 5, FRENO = -VEL_MAX, ROCE = -VEL_MAX / 5, ROCE_FUERA = -VEL_MAX / 2, LIMITE_FUERA = VEL_MAX / 4;
+const CENTRIFUGA = 0.3;
+const VUELTAS = 4, RIVALES = 10, NITROS = 3, T_NITRO = 2.5, EXTRA_NITRO = 1.35;
+const KMH = 260;                 // velocidad máxima mostrada en el velocímetro
+const ANCHO_AUTO = 0.3;          // ancho de un auto, en medios anchos de pista
+const LINEA = 30;                // tramo donde está la línea de salida y meta
+const COLORES_AUTOS = ['#e53935', '#1e88e5', '#fdd835', '#43a047', '#8e24aa', '#fb8c00', '#00acc1', '#d81b60', '#6d4c41', '#c0ca33'];
+const LETRA = 'ui-monospace, Consolas, "Courier New", monospace';
+
+// pistas: colores, adornos al costado y tramos [entrada, mantener, salida, curva, colina]
+const PISTAS = [
+  { nombre: 'Valle Verde', cielo: ['#3a8ee6', '#b9e0ff'], sol: '#fff59d', cerros: ['#5b9e4f', '#3f7d3a'], niebla: '#cfe8f7',
+    cesped: ['#3fa34d', '#36923f'], borde: ['#e8e8e8', '#c62828'], pista: ['#6b6b6b', '#646464'], linea: '#f5f5f5',
+    adornos: ['arbol', 'arbol', 'arbol', 'cartel', 'poste'],
+    tramos: [[10, 10, 10, 0, 0], [25, 25, 25, 2, 20], [25, 50, 25, 0, 0], [25, 25, 25, -3, -20], [10, 10, 10, 0, 40],
+      [25, 25, 25, 4, 0], [25, 50, 25, 0, -40], [25, 25, 25, -2, 30], [25, 25, 25, 0, -30], [25, 50, 25, 3, 0],
+      [25, 25, 25, -4, 0], [50, 50, 50, 0, 0]] },
+  { nombre: 'Desierto', cielo: ['#f39c45', '#ffe2a8'], sol: '#fffde7', cerros: ['#d4a056', '#b8813e'], niebla: '#f7dcae',
+    cesped: ['#e2c27d', '#d8b56e'], borde: ['#f5f5f5', '#1565c0'], pista: ['#7a6f63', '#72675c'], linea: '#fff8e1',
+    adornos: ['cactus', 'cactus', 'roca', 'palmera', 'cartel'],
+    tramos: [[10, 10, 10, 0, 0], [50, 100, 50, 0, 0], [25, 50, 25, 2, 10], [50, 100, 50, 0, -10], [25, 50, 25, -3, 0],
+      [50, 50, 50, 0, 30], [25, 50, 25, 4, -30], [50, 100, 50, 0, 0], [25, 25, 25, -2, 0], [50, 100, 50, 0, 0]] },
+  { nombre: 'Montaña', cielo: ['#0b1d3a', '#3d5a80'], sol: '#eceff1', cerros: ['#4a5d78', '#2f3e55'], niebla: '#566b8a',
+    cesped: ['#e9eef2', '#dbe3ea'], borde: ['#f5f5f5', '#c62828'], pista: ['#4f5560', '#4a4f59'], linea: '#ffeb3b',
+    adornos: ['pino', 'pino', 'pino', 'roca', 'poste'],
+    tramos: [[10, 10, 10, 0, 0], [25, 25, 25, -5, 40], [25, 25, 25, 5, -20], [25, 50, 25, 0, 60], [25, 25, 25, 6, -60],
+      [25, 25, 25, -6, 20], [25, 50, 25, 0, -20], [25, 25, 25, 4, 30], [25, 25, 25, -5, -30], [50, 50, 50, 0, 0]] },
+];
+
+// --- sonido: música y efectos propios ---
+const PASO = 0.17;
+const MELODIA = [[76, 1], [74, 1], [71, 1], [74, 1], [76, 2], [79, 2],
+  [79, 1], [76, 1], [72, 1], [76, 1], [79, 2], [84, 2],
+  [81, 1], [78, 1], [74, 1], [78, 1], [81, 2], [78, 1], [76, 1],
+  [75, 2], [78, 2], [83, 2], [78, 2],
+  [76, 1], [79, 1], [83, 1], [79, 1], [88, 2], [83, 2],
+  [84, 1], [81, 1], [76, 1], [81, 1], [84, 2], [88, 2],
+  [86, 1], [83, 1], [78, 1], [83, 1], [86, 1], [88, 1], [86, 1], [83, 1],
+  [83, 2], [78, 2], [75, 2], [76, 2]];
+const BAJO = [40, 36, 38, 35, 40, 45, 38].flatMap((r) => [[r, 1], [r + 12, 1], [r, 1], [r + 12, 1], [r, 1], [r + 12, 1], [r, 1], [r + 12, 1]])
+  .concat([[35, 1], [47, 1], [35, 1], [47, 1], [40, 1], [52, 1], [40, 1], [52, 1]]);
+Sonido.definir('musica', (s) => {
+  const p = [];
+  s.melodia(p, MELODIA, PASO, 0.11, 'cuadrada');
+  s.melodia(p, BAJO, PASO, 0.24, 'triangular');
+  for (let k = 0; k < 64; k++) { // batería: bombo en cada pulso y platillo en cada corchea
+    if (k % 2 === 0) s.tono(p, k * PASO, 0.09, 140, 45, 0.35, 'triangular');
+    s.tono(p, k * PASO, 0.025, 0, null, 0.05, 'ruido');
+  }
+  return s.recortar(p, 64 * PASO);
+});
+Sonido.definir('cuenta', (s) => { const p = []; s.tono(p, 0, 0.18, 620, null, 0.25); return p; });
+Sonido.definir('ya', (s) => { const p = []; s.tono(p, 0, 0.45, 1240, null, 0.25); return p; });
+Sonido.definir('nitro', (s) => {
+  const p = []; s.tono(p, 0, 0.6, 0, null, 0.25, 'ruido'); s.tono(p, 0, 0.6, 200, 900, 0.18); return p;
+});
+Sonido.definir('choque', (s) => {
+  const p = []; s.tono(p, 0, 0.35, 0, null, 0.4, 'ruido'); s.tono(p, 0, 0.3, 160, 40, 0.4, 'triangular'); return p;
+});
+Sonido.definir('golpe', (s) => { const p = []; s.tono(p, 0, 0.1, 300, 120, 0.3); return p; });
+Sonido.definir('vuelta', (s) => { const p = []; s.melodia(p, [[84, 1], [91, 3]], 0.09, 0.25, 'cuadrada'); return p; });
+Sonido.definir('meta', (s) => {
+  const p = [];
+  s.melodia(p, [[72, 1], [76, 1], [79, 1], [84, 1], [88, 1], [91, 1], [96, 6]], 0.1, 0.22, 'cuadrada');
+  s.melodia(p, [[48, 3], [55, 3], [60, 6]], 0.1, 0.3, 'triangular');
+  return p;
+});
+
+// --- construcción de la pista ---
+const facilEntrada = (a, b, t) => a + (b - a) * t * t;
+const facilAmbos = (a, b, t) => a + (b - a) * (-Math.cos(t * Math.PI) / 2 + 0.5);
+let segs = [], LARGO = 0, pista = PISTAS[0];
+
+function construirPista(indice) {
+  pista = PISTAS[indice];
+  segs = [];
+  const ultimaY = () => (segs.length ? segs[segs.length - 1].y2 : 0);
+  const agregar = (curva, y) => {
+    const n = segs.length;
+    segs.push({ i: n, y1: ultimaY(), y2: y, curva, claro: Math.floor(n / BANDA) % 2 === 0, adornos: [], autos: [] });
+  };
+  const tramo = (entrada, mantener, salida, curva, colina) => {
+    const y0 = ultimaY(), y1 = y0 + colina * SEG, total = entrada + mantener + salida;
+    let n = 0;
+    for (let k = 0; k < entrada; k++) agregar(facilEntrada(0, curva, k / entrada), facilAmbos(y0, y1, n++ / total));
+    for (let k = 0; k < mantener; k++) agregar(curva, facilAmbos(y0, y1, n++ / total));
+    for (let k = 0; k < salida; k++) agregar(facilAmbos(curva, 0, k / salida), facilAmbos(y0, y1, n++ / total));
+  };
+  // la pista se recorre dos veces por vuelta: la segunda con las curvas al revés
+  const espejo = pista.tramos.slice(1).map(([a, b, d, curva, colina]) => [a, b, d, -curva, colina]);
+  for (const t of [...pista.tramos, ...espejo]) tramo(...t);
+  tramo(25, 25, 25, 0, -ultimaY() / SEG); // vuelve a la altura de partida para cerrar el circuito
+  LARGO = segs.length * SEG;
+  for (let k = 0; k < 3; k++) segs[LINEA + k].meta = true;
+
+  // adornos al costado de la pista, siempre iguales para cada pista
+  let semilla = 7 + indice * 13;
+  const azar = () => (semilla = (semilla * 16807) % 2147483647) / 2147483647;
+  for (let n = 10; n < segs.length; n += 3 + Math.floor(azar() * 4)) {
+    for (const lado of [-1, 1]) {
+      if (azar() < 0.35) continue;
+      const tipo = pista.adornos[Math.floor(azar() * pista.adornos.length)];
+      segs[n].adornos.push({ tipo, x: lado * (1.35 + azar() * 1.6) });
+    }
+  }
+  for (let n = LINEA - 6; n < LINEA + 8; n += 7) { // carteles de salida
+    segs[n].adornos.push({ tipo: 'cartel', x: -1.3 }, { tipo: 'cartel', x: 1.3 });
+  }
+}
+
+const tramoEn = (z) => segs[Math.floor(z / SEG) % segs.length];
+const sumar = (z, d) => { let r = z + d; while (r >= LARGO) r -= LARGO; while (r < 0) r += LARGO; return r; };
+const solapan = (x1, w1, x2, w2, f = 1) => Math.abs(x1 - x2) < (w1 + w2) * f / 2;
+
+// --- estado de la carrera ---
+const opciones = { jugadores: Guardado.leer('turbo_jugadores', 1), pista: Guardado.leer('turbo_pista', 0), dificultad: Guardado.leer('turbo_dificultad', 1) };
+const tactil = matchMedia('(pointer: coarse)').matches;
+const c = { estado: 'menu', pausa: false, corredores: [], jugadores: [], reloj: 0, cuenta: 0, llegados: 0, tFin: 0 };
+const entradas = [0, 1].map(() => ({ izq: false, der: false, acel: false, freno: false, nitro: false }));
+const teclas = new Set();
+let motores = [];
+
+function nuevaCarrera() {
+  construirPista(opciones.pista);
+  const velBase = [0.66, 0.76, 0.9][opciones.dificultad];
+  c.corredores = [];
+  c.jugadores = [];
+  const total = RIVALES + opciones.jugadores;
+  for (let k = 0; k < total; k++) {
+    const fila = Math.floor(k / 2);
+    const r = { z: (LINEA - 4 - fila * 4) * SEG, x: k % 2 ? 0.5 : -0.5, vel: 0, vueltasPista: 0, termino: false, lugar: 0,
+      tiempo: 0, mejor: 0, inicioVuelta: 0, vueltaActual: 1 };
+    const humano = k >= RIVALES;
+    if (humano) { // los jugadores salen al fondo de la parrilla
+      Object.assign(r, { humano: true, num: k - RIVALES, color: k === RIVALES ? '#ffffff' : '#ff9800', nitros: NITROS, tNitro: 0,
+        fondo: 0, giro: 0, frenando: false, tChoque: 0 });
+      c.jugadores.push(r);
+    } else {
+      Object.assign(r, { humano: false, color: COLORES_AUTOS[k % COLORES_AUTOS.length],
+        objetivo: (velBase + (RIVALES - k) / RIVALES * 0.12 + Math.random() * 0.03) * VEL_MAX });
+    }
+    c.corredores.push(r);
+  }
+  c.reloj = 0;
+  c.llegados = 0;
+  c.tFin = 0;
+  c.cuenta = 3.99;
+  c.estado = 'cuenta';
+  c.pausa = false;
+  c.ultimoNumero = 4;
+  for (const e of entradas) { // suelta todos los controles, sin perder el registro de los botones táctiles
+    Object.assign(e, { izq: false, der: false, acel: false, freno: false, nitro: false });
+    for (const k of Object.keys(e.tactil)) e.tactil[k] = false;
+  }
+  ajustarLienzo();
+  mostrarMandos();
+  document.getElementById('menu').hidden = true;
+  document.getElementById('resultados').hidden = true;
+  Sonido.iniciar();
+  Sonido.reanudar();
+  for (const m of motores) if (m) m.parar();
+  motores = c.jugadores.map(() => Sonido.crearMotor());
+  Sonido.musica('musica');
+}
+
+// distancia recorrida desde la línea de salida
+const recorrido = (r) => r.vueltasPista * LARGO + r.z - LINEA * SEG;
+
+function posicion(r) {
+  if (r.termino) return r.lugar;
+  return 1 + c.corredores.filter((o) => o !== r && (o.termino || recorrido(o) > recorrido(r))).length;
+}
+
+function avanzar(r, d) {
+  const antes = r.z;
+  r.z = sumar(r.z, d);
+  if (r.z < antes && d > 0) r.vueltasPista++;
+  // vueltas completas y llegada
+  const vuelta = Math.floor(recorrido(r) / LARGO) + 1;
+  if (!r.termino && vuelta > r.vueltaActual) {
+    const tiempoVuelta = c.reloj - r.inicioVuelta;
+    if (r.humano && r.vueltaActual >= 1) r.mejor = r.mejor ? Math.min(r.mejor, tiempoVuelta) : tiempoVuelta;
+    r.inicioVuelta = c.reloj;
+    r.vueltaActual = vuelta;
+    if (vuelta > VUELTAS) {
+      r.termino = true;
+      r.lugar = ++c.llegados;
+      r.tiempo = c.reloj;
+      if (r.humano) Sonido.tocar('meta');
+    } else if (r.humano) {
+      Sonido.tocar('vuelta');
+    }
+  }
+}
+
+function moverJugador(p, dt) {
+  const e = entradas[p.num];
+  const tramo = tramoEn(sumar(p.z, 0));
+  const tope = VEL_MAX * (p.tNitro > 0 ? EXTRA_NITRO : 1);
+  const pct = p.vel / VEL_MAX;
+  const dx = dt * 2 * Math.min(1, pct); // a toda velocidad cruza la pista en un segundo
+
+  p.giro = (e.izq ? -1 : 0) + (e.der ? 1 : 0);
+  p.x += p.giro * dx;
+  p.x -= dx * pct * tramo.curva * CENTRIFUGA; // las curvas empujan hacia afuera
+  if (p.termino) { e.acel = true; p.x *= 0.98; } // tras la meta sigue solo por el centro
+
+  p.frenando = e.freno;
+  if (e.nitro && p.nitros > 0 && p.tNitro <= 0 && c.estado === 'carrera' && !p.termino) {
+    p.nitros--;
+    p.tNitro = T_NITRO;
+    Sonido.tocar('nitro');
+  }
+  e.nitro = false;
+  p.tNitro = Math.max(0, p.tNitro - dt);
+  if (e.freno) p.vel += FRENO * dt;
+  else if (e.acel) p.vel += ACEL * (p.tNitro > 0 ? 2 : 1) * dt;
+  else p.vel += ROCE * dt;
+  if (p.vel > VEL_MAX && p.tNitro <= 0) p.vel += ROCE * 2 * dt; // al acabarse el nitro vuelve poco a poco
+
+  // fuera de la pista: frena y puede chocar con los adornos
+  if (Math.abs(p.x) > 1) {
+    if (p.vel > LIMITE_FUERA) p.vel += ROCE_FUERA * dt;
+    for (const a of tramo.adornos) {
+      if (solapan(p.x, ANCHO_AUTO, a.x, ANCHO[a.tipo] || 0.4, 0.8)) {
+        if (p.vel > VEL_MAX / 5) Sonido.tocar('choque');
+        p.vel = VEL_MAX / 5;
+        p.tChoque = 0.4;
+        p.z = sumar(tramo.i * SEG, -SEG * 0.5);
+        vibrar(60);
+        break;
+      }
+    }
+  }
+  // choque con autos que van delante en el mismo tramo
+  for (const o of c.corredores) {
+    if (o === p) continue;
+    const delante = sumar(o.z, -p.z);
+    if (delante > 0 && delante < SEG * 1.2 && p.vel > o.vel && solapan(p.x, ANCHO_AUTO, o.x, ANCHO_AUTO, 0.85)) {
+      p.vel = o.vel * (o.vel / Math.max(1, p.vel));
+      p.z = sumar(o.z, -SEG * 1.2);
+      Sonido.tocar('golpe');
+      vibrar(30);
+    }
+  }
+  p.x = Math.max(-2.6, Math.min(2.6, p.x));
+  p.vel = Math.max(0, Math.min(p.vel, tope));
+  p.fondo += tramo.curva * pct * dt * 0.05;
+  p.tChoque = Math.max(0, p.tChoque - dt);
+  avanzar(p, p.vel * dt);
+}
+
+function moverRival(r, dt) {
+  // acelera hasta su velocidad y esquiva a quien vaya más lento delante; si va muy por delante
+  // del jugador afloja un poco y si va muy atrás aprieta, para que la carrera siga reñida
+  const lider = Math.max(...c.jugadores.map(recorrido));
+  const ajuste = 1 + Math.max(-0.12, Math.min(0.12, (lider - recorrido(r)) / (LARGO * 0.25)));
+  const objetivo = r.termino ? r.objetivo * 0.8 : Math.min(VEL_MAX * 1.02, r.objetivo * ajuste);
+  r.vel += Math.sign(objetivo - r.vel) * Math.min(Math.abs(objetivo - r.vel), ACEL * 0.8 * dt);
+  let esquivar = 0;
+  for (const o of c.corredores) {
+    if (o === r) continue;
+    const delante = sumar(o.z, -r.z);
+    if (delante > 0 && delante < SEG * 18 && o.vel < r.vel && solapan(r.x, ANCHO_AUTO, o.x, ANCHO_AUTO, 1.3)) {
+      esquivar = o.x > 0.4 ? -1 : o.x < -0.4 ? 1 : (r.x >= o.x ? 1 : -1);
+      break;
+    }
+  }
+  r.x = Math.max(-0.85, Math.min(0.85, r.x + esquivar * dt * 1.4));
+  avanzar(r, r.vel * dt);
+}
+
+function actualizar(dt) {
+  if (c.pausa || c.estado === 'menu') return;
+  if (c.estado === 'cuenta') {
+    c.cuenta -= dt;
+    const numero = Math.ceil(c.cuenta);
+    if (numero !== c.ultimoNumero) {
+      c.ultimoNumero = numero;
+      Sonido.tocar(numero > 0 ? 'cuenta' : 'ya');
+    }
+    if (c.cuenta <= 0) c.estado = 'carrera';
+  } else {
+    c.reloj += dt;
+    leerTeclado();
+    for (const p of c.jugadores) moverJugador(p, dt);
+    for (const r of c.corredores) if (!r.humano) moverRival(r, dt);
+    if (c.estado === 'carrera' && c.jugadores.every((p) => p.termino)) {
+      c.tFin += dt;
+      if (c.tFin > 2.5) terminarCarrera();
+    }
+  }
+  c.jugadores.forEach((p, k) => {
+    if (motores[k]) motores[k].ajustar(55 + (p.vel / VEL_MAX) * 150, c.estado === 'resultados' ? 0 : (opciones.jugadores > 1 ? 0.05 : 0.07));
+  });
+}
+
+function terminarCarrera() {
+  c.estado = 'resultados';
+  Sonido.pararMusica();
+  for (const m of motores) if (m) m.ajustar(40, 0);
+  const formato = (t) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
+  const texto = c.jugadores.map((p) => {
+    const quien = opciones.jugadores > 1 ? `Jugador ${p.num + 1}` : 'Tú';
+    return `${quien}: <b>${p.lugar}º lugar</b> de ${c.corredores.length}<br>tiempo ${formato(p.tiempo)} · mejor vuelta ${formato(p.mejor || p.tiempo)}`;
+  }).join('<br><br>');
+  const record = Guardado.leer(`turbo_record_${opciones.pista}`, null);
+  const mejorTiempo = Math.min(...c.jugadores.map((p) => p.tiempo));
+  let extra = '';
+  if (record === null || mejorTiempo < record) {
+    Guardado.escribir(`turbo_record_${opciones.pista}`, mejorTiempo);
+    extra = '<br><br>¡Nuevo récord de la pista!';
+  } else {
+    extra = `<br><br>Récord de ${pista.nombre}: ${formato(record)}`;
+  }
+  document.getElementById('texto-resultados').innerHTML = texto + extra;
+  document.getElementById('resultados').hidden = false;
+  mostrarMandos();
+}
+
+// --- dibujo ---
+const lienzo = document.getElementById('lienzo');
+const zona = document.getElementById('zona');
+const g = lienzo.getContext('2d');
+let W = 640, H = 360;
+function ajustarLienzo() {
+  W = 640;
+  H = opciones.jugadores > 1 && c.estado !== 'menu' ? 540 : 360;
+  const esc = Math.max(0.05, Math.min(zona.clientWidth / W, zona.clientHeight / H));
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  lienzo.style.width = Math.floor(W * esc) + 'px';
+  lienzo.style.height = Math.floor(H * esc) + 'px';
+  lienzo.width = Math.round(W * esc * dpr);
+  lienzo.height = Math.round(H * esc * dpr);
+  g.setTransform(lienzo.width / W, 0, 0, lienzo.height / H, 0, 0);
+}
+new ResizeObserver(ajustarLienzo).observe(zona);
+
+function poligono(x1, y1, x2, y2, x3, y3, x4, y4, color) {
+  g.fillStyle = color;
+  g.beginPath();
+  g.moveTo(x1, y1);
+  g.lineTo(x2, y2);
+  g.lineTo(x3, y3);
+  g.lineTo(x4, y4);
+  g.closePath();
+  g.fill();
+}
+
+// ancho de cada adorno, en medios anchos de pista (también se usa para los choques)
+const ANCHO = { arbol: 0.55, pino: 0.4, palmera: 0.45, cactus: 0.25, roca: 0.45, cartel: 0.7, poste: 0.12 };
+function dibujarAdorno(tipo, x, y, w) {
+  const h = w; // la mayoría son tan altos como anchos
+  switch (tipo) {
+    case 'arbol':
+      g.fillStyle = '#6d4c41'; g.fillRect(x - w * 0.08, y - h * 0.55, w * 0.16, h * 0.55);
+      g.fillStyle = '#2e7d32'; g.beginPath(); g.arc(x, y - h * 0.85, w * 0.45, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#43a047'; g.beginPath(); g.arc(x - w * 0.12, y - h * 0.95, w * 0.25, 0, Math.PI * 2); g.fill();
+      break;
+    case 'pino':
+      g.fillStyle = '#5d4037'; g.fillRect(x - w * 0.07, y - h * 0.35, w * 0.14, h * 0.35);
+      for (let k = 0; k < 3; k++) {
+        const base = y - h * (0.25 + k * 0.38), ancho = w * (0.5 - k * 0.12);
+        poligono(x - ancho, base, x + ancho, base, x + ancho * 0.1, base - h * 0.55, x - ancho * 0.1, base - h * 0.55, k === 2 ? '#e3f2fd' : '#1b5e20');
+      }
+      break;
+    case 'palmera':
+      g.strokeStyle = '#8d6e63'; g.lineWidth = Math.max(1, w * 0.1);
+      g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + w * 0.2, y - h * 0.8, x + w * 0.05, y - h * 1.5); g.stroke();
+      g.fillStyle = '#558b2f';
+      for (let k = 0; k < 5; k++) {
+        const a = -Math.PI / 2 + (k - 2) * 0.6;
+        g.beginPath(); g.ellipse(x + w * 0.05 + Math.cos(a) * w * 0.35, y - h * 1.5 + Math.sin(a) * w * 0.2, w * 0.38, w * 0.08, a, 0, Math.PI * 2); g.fill();
+      }
+      break;
+    case 'cactus':
+      g.fillStyle = '#2e7d32';
+      g.fillRect(x - w * 0.15, y - h * 1.6, w * 0.3, h * 1.6);
+      g.fillRect(x - w * 0.5, y - h * 1.05, w * 0.12, h * 0.5); g.fillRect(x - w * 0.5, y - h * 0.65, w * 0.4, w * 0.12);
+      g.fillRect(x + w * 0.38, y - h * 1.25, w * 0.12, h * 0.5); g.fillRect(x + w * 0.1, y - h * 0.85, w * 0.4, w * 0.12);
+      break;
+    case 'roca':
+      g.fillStyle = '#8d8d8d'; g.beginPath(); g.ellipse(x, y - h * 0.22, w * 0.5, h * 0.3, 0, Math.PI, 0); g.fill();
+      g.fillStyle = '#a5a5a5'; g.beginPath(); g.ellipse(x - w * 0.12, y - h * 0.3, w * 0.22, h * 0.14, 0, Math.PI, 0); g.fill();
+      break;
+    case 'cartel':
+      g.fillStyle = '#424242'; g.fillRect(x - w * 0.4, y - h * 0.5, w * 0.06, h * 0.5); g.fillRect(x + w * 0.34, y - h * 0.5, w * 0.06, h * 0.5);
+      g.fillStyle = '#ffd54f'; g.fillRect(x - w * 0.5, y - h * 0.95, w, h * 0.45);
+      if (w > 18) {
+        g.fillStyle = '#b71c1c'; g.font = `bold ${Math.round(w * 0.16)}px ${LETRA}`; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText('TURBO', x, y - h * 0.72);
+      }
+      break;
+    case 'poste':
+      g.fillStyle = '#eceff1'; g.fillRect(x - w * 0.5, y - w * 5, w, w * 5);
+      g.fillStyle = '#e53935'; g.fillRect(x - w * 0.5, y - w * 5, w, w * 0.8);
+      break;
+  }
+}
+
+// auto visto desde atrás; giro inclina la carrocería, freno enciende las luces
+function dibujarAuto(x, y, w, color, giro = 0, freno = false, nitro = false) {
+  const h = w * 0.5;
+  g.save();
+  g.translate(x, y);
+  g.transform(1, 0, giro * 0.12, 1, 0, 0);
+  g.fillStyle = 'rgba(0,0,0,0.35)';
+  g.beginPath(); g.ellipse(0, -h * 0.02, w * 0.55, h * 0.12, 0, 0, Math.PI * 2); g.fill();
+  g.fillStyle = '#111';
+  g.fillRect(-w * 0.48, -h * 0.32, w * 0.2, h * 0.32);
+  g.fillRect(w * 0.28, -h * 0.32, w * 0.2, h * 0.32);
+  g.fillStyle = color;
+  g.beginPath();
+  g.moveTo(-w * 0.5, -h * 0.2); g.lineTo(w * 0.5, -h * 0.2); g.lineTo(w * 0.47, -h * 0.62); g.lineTo(-w * 0.47, -h * 0.62);
+  g.closePath(); g.fill();
+  g.beginPath();
+  g.moveTo(-w * 0.34, -h * 0.62); g.lineTo(w * 0.34, -h * 0.62); g.lineTo(w * 0.26, -h); g.lineTo(-w * 0.26, -h);
+  g.closePath(); g.fill();
+  g.fillStyle = '#263238';
+  g.beginPath();
+  g.moveTo(-w * 0.29, -h * 0.66); g.lineTo(w * 0.29, -h * 0.66); g.lineTo(w * 0.23, -h * 0.94); g.lineTo(-w * 0.23, -h * 0.94);
+  g.closePath(); g.fill();
+  g.fillStyle = freno ? '#ff1744' : '#b71c1c';
+  g.fillRect(-w * 0.45, -h * 0.5, w * 0.18, h * 0.12);
+  g.fillRect(w * 0.27, -h * 0.5, w * 0.18, h * 0.12);
+  g.fillStyle = '#eceff1';
+  g.fillRect(-w * 0.1, -h * 0.42, w * 0.2, h * 0.1);
+  if (nitro) {
+    g.fillStyle = Math.random() < 0.5 ? '#ffeb3b' : '#ff9800';
+    g.beginPath(); g.moveTo(-w * 0.2, -h * 0.22); g.lineTo(-w * 0.12, h * (0.15 + Math.random() * 0.25)); g.lineTo(-w * 0.04, -h * 0.22); g.fill();
+    g.beginPath(); g.moveTo(w * 0.04, -h * 0.22); g.lineTo(w * 0.12, h * (0.15 + Math.random() * 0.25)); g.lineTo(w * 0.2, -h * 0.22); g.fill();
+  }
+  g.restore();
+}
+
+function texto(t, x, y, tam, tinta, alinear = 'left') {
+  g.font = `bold ${tam}px ${LETRA}`;
+  g.textAlign = alinear;
+  g.textBaseline = 'middle';
+  g.fillStyle = 'rgba(0,0,0,0.55)';
+  g.fillText(t, x + 1.5, y + 1.5);
+  g.fillStyle = tinta;
+  g.fillText(t, x, y);
+}
+
+function dibujarFondo(p, w, h) {
+  const cielo = g.createLinearGradient(0, 0, 0, h * 0.6);
+  cielo.addColorStop(0, pista.cielo[0]);
+  cielo.addColorStop(1, pista.cielo[1]);
+  g.fillStyle = cielo;
+  g.fillRect(0, 0, w, h);
+  const desplaza = ((p.fondo % 1) + 1) % 1;
+  g.fillStyle = pista.sol;
+  g.beginPath(); g.arc(w * (0.75 - desplaza * 0.3 + 1) % w, h * 0.16, h * 0.07, 0, Math.PI * 2); g.fill();
+  // dos capas de cerros que se mueven distinto en las curvas
+  pista.cerros.forEach((color, capa) => {
+    const base = h * (0.5 + capa * 0.02), alto = h * (0.16 - capa * 0.05), mov = desplaza * w * (capa ? 1.6 : 0.8);
+    g.fillStyle = color;
+    g.beginPath();
+    g.moveTo(0, h);
+    for (let x = 0; x <= w; x += 8) {
+      const t = (x + mov) / w * Math.PI * 2;
+      g.lineTo(x, base - alto * (0.55 + 0.3 * Math.sin(t * (2 + capa)) + 0.15 * Math.sin(t * (5 + capa * 2) + 1)));
+    }
+    g.lineTo(w, h);
+    g.fill();
+  });
+}
+
+// dibuja lo que ve un jugador en un rectángulo de w x h
+function dibujarVista(p, w, h) {
+  dibujarFondo(p, w, h);
+  const camZ0 = sumar(p.z, -Z_JUGADOR);
+  const base = tramoEn(camZ0);
+  const basePct = (camZ0 % SEG) / SEG;
+  const tramoJugador = tramoEn(p.z);
+  const pctJugador = (p.z % SEG) / SEG;
+  const yJugador = tramoJugador.y1 + (tramoJugador.y2 - tramoJugador.y1) * pctJugador;
+  let maxY = h, x = 0, dx = -(base.curva * basePct);
+  const proy = [];
+  for (let n = 0; n < DIBUJO; n++) {
+    const s = segs[(base.i + n) % segs.length];
+    const vuelta = s.i < base.i ? LARGO : 0;
+    const camX = p.x * ANCHO_PISTA, camY = yJugador + ALTO_CAM;
+    const pr = (yMundo, zMundo, desplazX) => {
+      const cz = zMundo + vuelta - camZ0;
+      const escala = PROF_CAM / cz;
+      return { z: cz, escala, x: w / 2 + escala * (desplazX - camX) * w / 2, y: h / 2 - escala * (yMundo - camY) * h / 2, w: escala * ANCHO_PISTA * w / 2 };
+    };
+    const a = pr(s.y1, s.i * SEG, x), b = pr(s.y2, (s.i + 1) * SEG, x + dx);
+    x += dx;
+    dx += s.curva;
+    proy.push({ s, a, b, clip: maxY });
+    if (a.z <= PROF_CAM || b.y >= a.y || b.y >= maxY) continue;
+    // césped, bordes, asfalto y líneas
+    const borde1 = a.w / Math.max(6, 2 * CARRILES), borde2 = b.w / Math.max(6, 2 * CARRILES);
+    g.fillStyle = s.claro ? pista.cesped[0] : pista.cesped[1];
+    g.fillRect(0, b.y, w, a.y - b.y + 1);
+    const colorBorde = s.claro ? pista.borde[0] : pista.borde[1];
+    poligono(a.x - a.w - borde1, a.y, a.x - a.w, a.y, b.x - b.w, b.y, b.x - b.w - borde2, b.y, colorBorde);
+    poligono(a.x + a.w + borde1, a.y, a.x + a.w, a.y, b.x + b.w, b.y, b.x + b.w + borde2, b.y, colorBorde);
+    poligono(a.x - a.w, a.y, a.x + a.w, a.y, b.x + b.w, b.y, b.x - b.w, b.y, s.meta ? (s.claro ? '#f5f5f5' : '#212121') : (s.claro ? pista.pista[0] : pista.pista[1]));
+    if (s.claro && !s.meta) {
+      const l1 = a.w / Math.max(32, 8 * CARRILES), l2 = b.w / Math.max(32, 8 * CARRILES);
+      for (let k = 1; k < CARRILES; k++) {
+        const f = -1 + k * 2 / CARRILES;
+        poligono(a.x + a.w * f - l1 / 2, a.y, a.x + a.w * f + l1 / 2, a.y, b.x + b.w * f + l2 / 2, b.y, b.x + b.w * f - l2 / 2, b.y, pista.linea);
+      }
+    }
+    const niebla = 1 - Math.exp(-((n / DIBUJO) ** 2) * 4);
+    if (niebla > 0.02) {
+      g.globalAlpha = niebla;
+      g.fillStyle = pista.niebla;
+      g.fillRect(0, b.y, w, a.y - b.y + 1);
+      g.globalAlpha = 1;
+    }
+    maxY = b.y;
+  }
+  // adornos y autos, del más lejano al más cercano
+  for (let n = proy.length - 1; n > 0; n--) {
+    const { s, a, b, clip } = proy[n];
+    if (a.z <= PROF_CAM) continue;
+    g.save();
+    g.beginPath();
+    g.rect(0, 0, w, clip);
+    g.clip();
+    for (const ad of s.adornos) {
+      const ancho = (ANCHO[ad.tipo] || 0.4) * a.escala * ANCHO_PISTA * w / 2;
+      if (ancho > 1) dibujarAdorno(ad.tipo, a.x + a.escala * ad.x * ANCHO_PISTA * w / 2, a.y, ancho);
+    }
+    for (const r of c.corredores) {
+      if (r === p || tramoEn(r.z) !== s) continue;
+      const pct = (r.z % SEG) / SEG;
+      const escala = a.escala + (b.escala - a.escala) * pct;
+      const sx = a.x + (b.x - a.x) * pct + escala * r.x * ANCHO_PISTA * w / 2;
+      const sy = a.y + (b.y - a.y) * pct;
+      const ancho = ANCHO_AUTO * escala * ANCHO_PISTA * w / 2;
+      if (ancho > 2) dibujarAuto(sx, sy, ancho, r.color, 0, false, r.humano && r.tNitro > 0);
+    }
+    g.restore();
+  }
+  // tu auto, abajo al centro, con un leve rebote
+  const pct = p.vel / VEL_MAX;
+  const rebote = (Math.abs(p.x) > 1 ? 4 : 1.2) * pct * (Math.random() - 0.5) * (h / 360) * 2;
+  const anchoAuto = ANCHO_AUTO * (PROF_CAM / Z_JUGADOR) * ANCHO_PISTA * w / 2;
+  dibujarAuto(w / 2, h - h * 0.04 + rebote, anchoAuto, p.color, p.giro, p.frenando, p.tNitro > 0);
+
+  // marcador
+  const t = Math.round(13 * h / 360) + 2;
+  const pos = posicion(p);
+  texto(`POS ${pos}/${c.corredores.length}`, 10, t, t + 4, pos <= 3 ? '#ffd54f' : '#ffffff');
+  texto(`VUELTA ${Math.min(VUELTAS, Math.max(1, p.vueltaActual))}/${VUELTAS}`, 10, t * 2.4, t, '#ffffff');
+  const reloj = p.termino ? p.tiempo : c.reloj;
+  texto(`${Math.floor(reloj / 60)}:${(reloj % 60).toFixed(1).padStart(4, '0')}`, w - 10, t, t + 2, '#ffffff', 'right');
+  texto(`${Math.round(pct * KMH)} km/h`, w - 10, h - t * 1.2, t + 4, p.tNitro > 0 ? '#ffeb3b' : '#ffffff', 'right');
+  texto(`NITRO ${'■'.repeat(p.nitros)}${'□'.repeat(NITROS - p.nitros)}`, 10, h - t * 1.2, t, '#ffeb3b');
+  // barra de avance de la carrera
+  const avance = Math.max(0, Math.min(1, recorrido(p) / (VUELTAS * LARGO)));
+  g.fillStyle = 'rgba(0,0,0,0.4)'; g.fillRect(w * 0.3, t * 0.6, w * 0.4, t * 0.5);
+  g.fillStyle = '#ffd54f'; g.fillRect(w * 0.3, t * 0.6, w * 0.4 * avance, t * 0.5);
+  if (p.tChoque > 0) texto('¡CUIDADO!', w / 2, h * 0.3, t + 8, '#ff5252', 'center');
+  if (p.termino) texto(`¡META! ${p.lugar}º LUGAR`, w / 2, h * 0.32, t + 12, '#ffd54f', 'center');
+  if (c.estado === 'cuenta') {
+    const n = Math.ceil(c.cuenta);
+    texto(n > 0 ? String(n) : '¡YA!', w / 2, h * 0.35, Math.round(h * 0.2), n > 0 ? '#ffffff' : '#76ff03', 'center');
+  } else if (c.reloj < 1) {
+    texto('¡YA!', w / 2, h * 0.35, Math.round(h * 0.2), '#76ff03', 'center');
+  }
+}
+
+function dibujar() {
+  if (c.estado === 'menu' || !c.jugadores.length) {
+    const falso = { fondo: performance.now() / 20000 };
+    if (!segs.length) construirPista(opciones.pista);
+    dibujarFondo(falso, W, H);
+    g.fillStyle = pista.cesped[0];
+    g.fillRect(0, H * 0.55, W, H * 0.45);
+    poligono(W * 0.47, H * 0.55, W * 0.53, H * 0.55, W * 0.95, H, W * 0.05, H, pista.pista[0]);
+    dibujarAuto(W / 2, H * 0.96, W * 0.2, '#ffffff');
+    return;
+  }
+  if (c.jugadores.length === 1) {
+    dibujarVista(c.jugadores[0], W, H);
+  } else {
+    const mitad = H / 2;
+    // jugador 1 abajo; jugador 2 arriba (girado en pantallas táctiles, para quien juega enfrente)
+    g.save();
+    g.translate(0, mitad);
+    g.beginPath(); g.rect(0, 0, W, mitad); g.clip();
+    dibujarVista(c.jugadores[0], W, mitad);
+    g.restore();
+    g.save();
+    if (tactil) { g.translate(W, mitad); g.rotate(Math.PI); } else { g.translate(0, 0); }
+    g.beginPath(); g.rect(0, 0, W, mitad); g.clip();
+    dibujarVista(c.jugadores[1], W, mitad);
+    g.restore();
+    g.fillStyle = '#000';
+    g.fillRect(0, mitad - 1.5, W, 3);
+  }
+  if (c.pausa) {
+    g.fillStyle = 'rgba(0,0,0,0.5)';
+    g.fillRect(0, 0, W, H);
+    texto('PAUSA', W / 2, H / 2, 40, '#ffffff', 'center');
+  }
+}
+
+// --- controles ---
+function leerTeclado() {
+  const dos = opciones.jugadores > 1;
+  const t = (...ks) => ks.some((k) => teclas.has(k));
+  const e0 = entradas[0], tactil0 = e0.tactil || {};
+  e0.izq = t('a', ...(dos ? [] : ['arrowleft'])) || !!tactil0.izq;
+  e0.der = t('d', ...(dos ? [] : ['arrowright'])) || !!tactil0.der;
+  e0.acel = t('w', ...(dos ? [] : ['arrowup'])) || !!tactil0.acel;
+  e0.freno = t('s', ...(dos ? [] : ['arrowdown'])) || !!tactil0.freno;
+  if (dos) {
+    const e1 = entradas[1], tactil1 = e1.tactil || {};
+    e1.izq = t('arrowleft') || !!tactil1.izq;
+    e1.der = t('arrowright') || !!tactil1.der;
+    e1.acel = t('arrowup') || !!tactil1.acel;
+    e1.freno = t('arrowdown') || !!tactil1.freno;
+  }
+}
+
+function mostrarMandos() {
+  const enCarrera = c.estado === 'cuenta' || c.estado === 'carrera';
+  document.getElementById('mandos-0').hidden = !enCarrera;
+  document.getElementById('mandos-1').hidden = !enCarrera || opciones.jugadores < 2;
+  // con dos jugadores, cada mando queda en su mitad de la pantalla
+  document.getElementById('mandos-0').style.top = opciones.jugadores > 1 ? '50%' : '';
+  document.getElementById('mandos-1').style.bottom = opciones.jugadores > 1 ? '50%' : '';
+}
+
+[0, 1].forEach((num) => {
+  const e = entradas[num];
+  e.tactil = {};
+  for (const b of document.querySelectorAll(`#mandos-${num} button`)) {
+    const accion = b.dataset.accion;
+    botonMantener(b, () => {
+      if (accion === 'nitro') e.nitro = true; else e.tactil[accion] = true;
+    }, () => { e.tactil[accion] = false; });
+  }
+});
+
+addEventListener('keydown', (ev) => {
+  const k = ev.key.toLowerCase();
+  if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' '].includes(k)) ev.preventDefault();
+  teclas.add(k);
+  if (ev.repeat) return;
+  if (k === 'm') alternarSonido();
+  else if (k === 'p') alternarPausa();
+  else if (k === 'r' && c.estado !== 'menu') nuevaCarrera();
+  else if (k === ' ' ) entradas[0].nitro = true;
+  else if (k === 'enter') {
+    if (c.estado === 'menu') nuevaCarrera();
+    else entradas[opciones.jugadores > 1 ? 1 : 0].nitro = true;
+  }
+});
+addEventListener('keyup', (ev) => teclas.delete(ev.key.toLowerCase()));
+addEventListener('blur', () => teclas.clear());
+
+function alternarPausa() {
+  if (c.estado !== 'cuenta' && c.estado !== 'carrera') return;
+  c.pausa = !c.pausa;
+  if (c.pausa) Sonido.pausar(); else Sonido.reanudar();
+}
+function alternarSonido() {
+  Sonido.iniciar();
+  Sonido.alternar();
+  document.getElementById('b-sonido').textContent = Sonido.activo ? '🔊' : '🔇';
+}
+function irAlMenu() {
+  c.estado = 'menu';
+  c.pausa = false;
+  Sonido.pararMusica();
+  Sonido.reanudar();
+  for (const m of motores) if (m) m.parar();
+  motores = [];
+  c.jugadores = [];
+  document.getElementById('menu').hidden = false;
+  document.getElementById('resultados').hidden = true;
+  ajustarLienzo();
+  mostrarMandos();
+}
+
+// opciones del menú
+for (const grupo of document.querySelectorAll('.opciones[data-opcion]')) {
+  const nombre = grupo.dataset.opcion;
+  const marcar = () => grupo.querySelectorAll('button').forEach((b) => b.classList.toggle('activo', Number(b.dataset.valor) === opciones[nombre]));
+  grupo.addEventListener('click', (ev) => {
+    const b = ev.target.closest('button');
+    if (!b) return;
+    opciones[nombre] = Number(b.dataset.valor);
+    Guardado.escribir(`turbo_${nombre}`, opciones[nombre]);
+    if (nombre === 'pista') construirPista(opciones.pista);
+    marcar();
+  });
+  marcar();
+}
+document.getElementById('b-arrancar').addEventListener('click', nuevaCarrera);
+document.getElementById('b-otra').addEventListener('click', nuevaCarrera);
+document.getElementById('b-volver').addEventListener('click', irAlMenu);
+document.getElementById('b-menu').addEventListener('click', irAlMenu);
+document.getElementById('b-pausa').addEventListener('click', () => { Sonido.iniciar(); alternarPausa(); });
+document.getElementById('b-sonido').addEventListener('click', alternarSonido);
+document.getElementById('b-sonido').textContent = Sonido.activo ? '🔊' : '🔇';
+lienzo.addEventListener('pointerdown', () => { if (c.pausa) alternarPausa(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && !c.pausa) alternarPausa(); });
+
+construirPista(opciones.pista);
+ajustarLienzo();
+bucle((dt) => { actualizar(Math.min(dt, 1 / 20)); dibujar(); });
+window.juego = { c, entradas, opciones, nuevaCarrera, actualizar, dibujar, posicion, recorrido, tramoEn, get LARGO() { return LARGO; }, Sonido };
+</script>
+</body>
+</html>

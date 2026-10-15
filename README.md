@@ -14,6 +14,7 @@ Están en la carpeta [`docs/`](docs/) y no necesitan instalar nada: se abren en 
 | **Duelo de naves** | arrastrar para mover; con el dedo apoyado dispara | tú vs PC, 2 en equipo vs PC, 1 vs 1 en la misma tablet |
 | **Naves 3D** | igual que el duelo de naves | los mismos tres modos, en 3D |
 | **Plataformas 3D** | palanca en pantalla para moverse (a fondo corre) y botón para saltar | 1 jugador, con música |
+| **Turbo Ruta** | botones de dirección, acelerar, freno y nitro | carreras de 4 vueltas en 3 pistas contra 10 rivales; 2 jugadores en pantalla dividida (en tablet, la mitad de arriba va girada para quien está enfrente) |
 
 En el computador se juegan con el teclado (la ayuda aparece bajo cada juego).
 Todo el sonido se sintetiza en el navegador; no hay archivos de audio.
