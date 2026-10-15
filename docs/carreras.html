@@ -43,6 +43,14 @@
     cursor: pointer;
   }
   .opciones button.activo { border-color: var(--acento); background: var(--boton-pulsado); }
+  #vista-auto { display: block; width: 100%; max-width: 360px; height: auto; margin: 0 auto 8px; border-radius: 10px; }
+  .opciones.modelos { flex-wrap: wrap; }
+  .opciones.modelos button { flex: 1 1 18%; min-height: 38px; font-size: 12px; padding: 0 4px; }
+  .ficha { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: var(--tenue); line-height: 1.6; margin: 0 0 8px; text-align: left; white-space: pre-wrap; }
+  .ficha b { color: #ffd54f; font-weight: 400; letter-spacing: 1px; }
+  .colores { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 0 0 14px; }
+  .colores button { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.25); cursor: pointer; }
+  .colores button.activo { border-color: #fff; box-shadow: 0 0 0 2px var(--acento); }
   .opciones.pistas { flex-wrap: wrap; }
   .opciones.pistas button { flex: 1 1 22%; min-height: 40px; font-size: 13px; }
   .etiqueta { text-align: left; font-size: 12px; color: var(--tenue); margin: 0 0 4px 2px; }
@@ -118,6 +126,12 @@
       <p>Carreras de 4 vueltas contra 10 rivales en 7 pistas. Usa el nitro con cabeza: solo hay 3 por carrera.</p>
       <div class="etiqueta">Jugadores</div>
       <div class="opciones" data-opcion="jugadores"><button data-valor="1">1 jugador</button><button data-valor="2">2 jugadores</button></div>
+      <div class="etiqueta">Garaje</div>
+      <div class="opciones" id="pestanas-auto"><button data-j="0">Auto del jugador 1</button><button data-j="1">Auto del jugador 2</button></div>
+      <canvas id="vista-auto" width="360" height="140" aria-label="Vista previa del auto"></canvas>
+      <div class="opciones modelos" id="modelos"></div>
+      <div class="ficha" id="ficha"></div>
+      <div class="colores" id="colores"></div>
       <div class="etiqueta">Pista</div>
       <div class="opciones pistas" data-opcion="pista">
         <button data-valor="0">Valle Verde</button><button data-valor="1">Desierto</button><button data-valor="2">Montaña</button>
@@ -159,7 +173,17 @@ const VUELTAS = 4, RIVALES = 10, NITROS = 3, T_NITRO = 2.5, EXTRA_NITRO = 1.35;
 const KMH = 260;                 // velocidad máxima mostrada en el velocímetro
 const ANCHO_AUTO = 0.3;          // ancho de un auto, en medios anchos de pista
 const LINEA = 30;                // tramo donde está la línea de salida y meta
-const COLORES_AUTOS = ['#e53935', '#1e88e5', '#fdd835', '#43a047', '#8e24aa', '#fb8c00', '#00acc1', '#d81b60', '#6d4c41', '#c0ca33'];
+const COLORES = [['Blanco', '#f5f5f5'], ['Rojo', '#e53935'], ['Azul', '#1e88e5'], ['Amarillo', '#fdd835'], ['Verde', '#43a047'],
+  ['Naranja', '#fb8c00'], ['Morado', '#8e24aa'], ['Rosa', '#ec407a'], ['Celeste', '#29b6f6'], ['Negro', '#263238'],
+  ['Plata', '#b0bec5'], ['Dorado', '#c9a227'], ['Turquesa', '#00897b'], ['Vinotinto', '#7b1f2a']];
+// modelos: forma al dibujarlos y manejo (1 = normal). fuera < 1 pierde menos velocidad fuera de la pista
+const MODELOS = {
+  deportivo: { nombre: 'Deportivo', velMax: 1.0, acel: 1.0, agarre: 1.0, fuera: 1.0, nota: 'Equilibrado en todo.' },
+  bolido: { nombre: 'Bólido', velMax: 1.06, acel: 0.9, agarre: 0.85, fuera: 1.2, nota: 'El más rápido, pero se abre en las curvas.' },
+  muscle: { nombre: 'Muscle', velMax: 0.98, acel: 1.2, agarre: 0.95, fuera: 1.0, nota: 'Arranca con mucha fuerza.' },
+  compacto: { nombre: 'Compacto', velMax: 0.93, acel: 1.15, agarre: 1.25, fuera: 1.0, nota: 'Pegado al piso en las curvas.' },
+  todoterreno: { nombre: 'Todoterreno', velMax: 0.92, acel: 1.0, agarre: 1.05, fuera: 0.6, nota: 'Frena mucho menos fuera de la pista.' },
+};
 const LETRA = 'ui-monospace, Consolas, "Courier New", monospace';
 
 // pistas: colores, adornos al costado y tramos [entrada, mantener, salida, curva, colina]
@@ -290,6 +314,11 @@ const solapan = (x1, w1, x2, w2, f = 1) => Math.abs(x1 - x2) < (w1 + w2) * f / 2
 
 // --- estado de la carrera ---
 const opciones = { jugadores: Guardado.leer('turbo_jugadores', 1), pista: Guardado.leer('turbo_pista', 0), dificultad: Guardado.leer('turbo_dificultad', 1) };
+// auto elegido por cada jugador (si lo guardado no sirve, se usan los de fábrica)
+const autos = [{ modelo: 'deportivo', color: '#f5f5f5' }, { modelo: 'muscle', color: '#fb8c00' }];
+Guardado.leer('turbo_autos', []).forEach((a, i) => {
+  if (i < 2 && a && MODELOS[a.modelo] && COLORES.some(([, hexa]) => hexa === a.color)) autos[i] = { modelo: a.modelo, color: a.color };
+});
 const tactil = matchMedia('(pointer: coarse)').matches;
 const c = { estado: 'menu', pausa: false, corredores: [], jugadores: [], reloj: 0, cuenta: 0, llegados: 0, tFin: 0 };
 const entradas = [0, 1].map(() => ({ izq: false, der: false, acel: false, freno: false, nitro: false }));
@@ -308,11 +337,14 @@ function nuevaCarrera() {
       tiempo: 0, mejor: 0, inicioVuelta: 0, vueltaActual: 1 };
     const humano = k >= RIVALES;
     if (humano) { // los jugadores salen al fondo de la parrilla
-      Object.assign(r, { humano: true, num: k - RIVALES, color: k === RIVALES ? '#ffffff' : '#ff9800', nitros: NITROS, tNitro: 0,
+      const auto = autos[k - RIVALES];
+      Object.assign(r, { humano: true, num: k - RIVALES, color: auto.color, modelo: auto.modelo, m: MODELOS[auto.modelo], nitros: NITROS, tNitro: 0,
         fondo: 0, giro: 0, frenando: false, tChoque: 0 });
       c.jugadores.push(r);
     } else {
-      Object.assign(r, { humano: false, color: COLORES_AUTOS[k % COLORES_AUTOS.length],
+      const modelos = Object.keys(MODELOS);
+      Object.assign(r, { humano: false, color: COLORES[Math.floor(Math.random() * COLORES.length)][1],
+        modelo: modelos[Math.floor(Math.random() * modelos.length)],
         objetivo: (velBase + (RIVALES - k) / RIVALES * 0.12 + Math.random() * 0.03) * VEL_MAX });
     }
     c.corredores.push(r);
@@ -372,13 +404,14 @@ function avanzar(r, d) {
 function moverJugador(p, dt) {
   const e = entradas[p.num];
   const tramo = tramoEn(sumar(p.z, 0));
-  const tope = VEL_MAX * (p.tNitro > 0 ? EXTRA_NITRO : 1);
+  const m = p.m; // el modelo de auto cambia velocidad, aceleración, agarre y comportamiento fuera de la pista
+  const tope = VEL_MAX * m.velMax * (p.tNitro > 0 ? EXTRA_NITRO : 1);
   const pct = p.vel / VEL_MAX;
   const dx = dt * 2 * Math.min(1, pct); // a toda velocidad cruza la pista en un segundo
 
   p.giro = (e.izq ? -1 : 0) + (e.der ? 1 : 0);
   p.x += p.giro * dx;
-  p.x -= dx * pct * tramo.curva * CENTRIFUGA; // las curvas empujan hacia afuera
+  p.x -= dx * pct * tramo.curva * CENTRIFUGA / m.agarre; // las curvas empujan hacia afuera
   if (p.termino) { e.acel = true; p.x *= 0.98; } // tras la meta sigue solo por el centro
 
   p.frenando = e.freno;
@@ -390,13 +423,13 @@ function moverJugador(p, dt) {
   e.nitro = false;
   p.tNitro = Math.max(0, p.tNitro - dt);
   if (e.freno) p.vel += FRENO * dt;
-  else if (e.acel) p.vel += ACEL * (p.tNitro > 0 ? 2 : 1) * dt;
+  else if (e.acel) p.vel += ACEL * m.acel * (p.tNitro > 0 ? 2 : 1) * dt;
   else p.vel += ROCE * dt;
-  if (p.vel > VEL_MAX && p.tNitro <= 0) p.vel += ROCE * 2 * dt; // al acabarse el nitro vuelve poco a poco
+  if (p.vel > VEL_MAX * m.velMax && p.tNitro <= 0) p.vel += ROCE * 2 * dt; // al acabarse el nitro vuelve poco a poco
 
   // fuera de la pista: frena y puede chocar con los adornos
   if (Math.abs(p.x) > 1) {
-    if (p.vel > LIMITE_FUERA) p.vel += ROCE_FUERA * dt;
+    if (p.vel > LIMITE_FUERA / m.fuera) p.vel += ROCE_FUERA * m.fuera * dt;
     for (const a of tramo.adornos) {
       if (solapan(p.x, ANCHO_AUTO, a.x, ANCHO[a.tipo] || 0.4, 0.8)) {
         if (p.vel > VEL_MAX / 5) Sonido.tocar('choque');
@@ -624,39 +657,96 @@ function dibujarAdorno(tipo, x, y, w, v = 0.5) {
   }
 }
 
-// auto visto desde atrás; giro inclina la carrocería, freno enciende las luces
-function dibujarAuto(x, y, w, color, giro = 0, freno = false, nitro = false) {
+// tono más claro u oscuro del color del auto (para franjas y detalles)
+function matiz(hexa, t) {
+  const v = [1, 3, 5].map((i) => parseInt(hexa.slice(i, i + 2), 16));
+  const destino = t > 0 ? 255 : 0;
+  return `rgb(${v.map((c) => Math.round(c + (destino - c) * Math.abs(t))).join(',')})`;
+}
+
+// auto visto desde atrás, según su modelo; giro inclina la carrocería, freno enciende las luces.
+// k es el lienzo donde se dibuja (el del juego o la vista previa del garaje)
+function dibujarAuto(x, y, w, color, giro = 0, freno = false, nitro = false, modelo = 'deportivo', k = g) {
   const h = w * 0.5;
-  g.save();
-  g.translate(x, y);
-  g.transform(1, 0, giro * 0.12, 1, 0, 0);
-  g.fillStyle = 'rgba(0,0,0,0.35)';
-  g.beginPath(); g.ellipse(0, -h * 0.02, w * 0.55, h * 0.12, 0, 0, Math.PI * 2); g.fill();
-  g.fillStyle = '#111';
-  g.fillRect(-w * 0.48, -h * 0.32, w * 0.2, h * 0.32);
-  g.fillRect(w * 0.28, -h * 0.32, w * 0.2, h * 0.32);
-  g.fillStyle = color;
-  g.beginPath();
-  g.moveTo(-w * 0.5, -h * 0.2); g.lineTo(w * 0.5, -h * 0.2); g.lineTo(w * 0.47, -h * 0.62); g.lineTo(-w * 0.47, -h * 0.62);
-  g.closePath(); g.fill();
-  g.beginPath();
-  g.moveTo(-w * 0.34, -h * 0.62); g.lineTo(w * 0.34, -h * 0.62); g.lineTo(w * 0.26, -h); g.lineTo(-w * 0.26, -h);
-  g.closePath(); g.fill();
-  g.fillStyle = '#263238';
-  g.beginPath();
-  g.moveTo(-w * 0.29, -h * 0.66); g.lineTo(w * 0.29, -h * 0.66); g.lineTo(w * 0.23, -h * 0.94); g.lineTo(-w * 0.23, -h * 0.94);
-  g.closePath(); g.fill();
-  g.fillStyle = freno ? '#ff1744' : '#b71c1c';
-  g.fillRect(-w * 0.45, -h * 0.5, w * 0.18, h * 0.12);
-  g.fillRect(w * 0.27, -h * 0.5, w * 0.18, h * 0.12);
-  g.fillStyle = '#eceff1';
-  g.fillRect(-w * 0.1, -h * 0.42, w * 0.2, h * 0.1);
-  if (nitro) {
-    g.fillStyle = Math.random() < 0.5 ? '#ffeb3b' : '#ff9800';
-    g.beginPath(); g.moveTo(-w * 0.2, -h * 0.22); g.lineTo(-w * 0.12, h * (0.15 + Math.random() * 0.25)); g.lineTo(-w * 0.04, -h * 0.22); g.fill();
-    g.beginPath(); g.moveTo(w * 0.04, -h * 0.22); g.lineTo(w * 0.12, h * (0.15 + Math.random() * 0.25)); g.lineTo(w * 0.2, -h * 0.22); g.fill();
+  const trapecio = (abajo, arriba, y1, y2, tinta) => { // figura de ancho abajo/arriba entre las alturas y1 e y2
+    k.fillStyle = tinta;
+    k.beginPath();
+    k.moveTo(-w * abajo, -h * y1); k.lineTo(w * abajo, -h * y1); k.lineTo(w * arriba, -h * y2); k.lineTo(-w * arriba, -h * y2);
+    k.closePath(); k.fill();
+  };
+  const rueda = (cx, ancho, alto) => { k.fillStyle = '#111'; k.fillRect(w * cx - w * ancho / 2, -h * alto, w * ancho, h * alto); };
+  const luces = (y1, alto, ancho, sep) => {
+    k.fillStyle = freno ? '#ff1744' : '#b71c1c';
+    k.fillRect(-w * sep - w * ancho, -h * (y1 + alto), w * ancho, h * alto);
+    k.fillRect(w * sep, -h * (y1 + alto), w * ancho, h * alto);
+  };
+  k.save();
+  k.translate(x, y);
+  k.transform(1, 0, giro * 0.12, 1, 0, 0);
+  k.fillStyle = 'rgba(0,0,0,0.35)';
+  k.beginPath(); k.ellipse(0, -h * 0.02, w * 0.56, h * 0.12, 0, 0, Math.PI * 2); k.fill();
+  let escape = 0.22; // altura del escape (para las llamas del nitro)
+  switch (modelo) {
+    case 'bolido': // monoplaza: ruedas a la vista, casco del piloto y alerón alto
+      rueda(-0.4, 0.22, 0.46); rueda(0.4, 0.22, 0.46);
+      trapecio(0.26, 0.2, 0.12, 0.5, color);
+      k.fillStyle = '#ffffff'; k.beginPath(); k.arc(0, -h * 0.62, w * 0.09, 0, Math.PI * 2); k.fill();
+      k.fillStyle = '#263238'; k.fillRect(-w * 0.07, -h * 0.66, w * 0.14, h * 0.06);
+      k.fillStyle = '#37474f'; k.fillRect(-w * 0.2, -h * 0.85, w * 0.03, h * 0.35); k.fillRect(w * 0.17, -h * 0.85, w * 0.03, h * 0.35);
+      k.fillStyle = color; k.fillRect(-w * 0.42, -h * 0.98, w * 0.84, h * 0.16);
+      k.fillStyle = matiz(color, -0.35); k.fillRect(-w * 0.42, -h * 0.84, w * 0.84, h * 0.03);
+      luces(0.18, 0.1, 0.06, -0.03);
+      escape = 0.14;
+      break;
+    case 'muscle': // ancho y cuadrado, con franjas y alerón trasero
+      rueda(-0.38, 0.22, 0.34); rueda(0.38, 0.22, 0.34);
+      trapecio(0.52, 0.5, 0.18, 0.66, color);
+      trapecio(0.38, 0.32, 0.66, 0.98, color);
+      trapecio(0.33, 0.28, 0.7, 0.93, '#263238');
+      k.fillStyle = matiz(color, 0.75);
+      k.fillRect(-w * 0.12, -h * 0.98, w * 0.08, h * 0.8); k.fillRect(w * 0.04, -h * 0.98, w * 0.08, h * 0.8);
+      k.fillStyle = matiz(color, -0.4); k.fillRect(-w * 0.5, -h * 0.72, w, h * 0.06);
+      luces(0.42, 0.13, 0.22, 0.26);
+      k.fillStyle = '#90a4ae'; k.fillRect(-w * 0.3, -h * 0.2, w * 0.08, h * 0.06); k.fillRect(w * 0.22, -h * 0.2, w * 0.08, h * 0.06);
+      break;
+    case 'compacto': // pequeño y alto, con techo redondeado y gran luneta
+      rueda(-0.33, 0.18, 0.32); rueda(0.33, 0.18, 0.32);
+      trapecio(0.43, 0.42, 0.2, 0.62, color);
+      trapecio(0.4, 0.33, 0.62, 1.12, color);
+      k.fillStyle = color; k.beginPath(); k.ellipse(0, -h * 1.1, w * 0.33, h * 0.12, 0, Math.PI, 0); k.fill();
+      trapecio(0.34, 0.28, 0.68, 1.06, '#263238');
+      k.fillStyle = freno ? '#ff1744' : '#b71c1c';
+      k.fillRect(-w * 0.42, -h * 0.75, w * 0.07, h * 0.3); k.fillRect(w * 0.35, -h * 0.75, w * 0.07, h * 0.3);
+      break;
+    case 'todoterreno': // alto, ruedas grandes, rueda de repuesto y parrilla en el techo
+      rueda(-0.36, 0.24, 0.46); rueda(0.36, 0.24, 0.46);
+      trapecio(0.5, 0.49, 0.3, 0.86, color);
+      trapecio(0.45, 0.42, 0.86, 1.3, color);
+      trapecio(0.4, 0.37, 0.92, 1.24, '#263238');
+      k.fillStyle = '#212121'; k.beginPath(); k.arc(0, -h * 0.6, w * 0.13, 0, Math.PI * 2); k.fill();
+      k.fillStyle = '#9e9e9e'; k.beginPath(); k.arc(0, -h * 0.6, w * 0.06, 0, Math.PI * 2); k.fill();
+      k.fillStyle = '#424242'; k.fillRect(-w * 0.4, -h * 1.42, w * 0.8, h * 0.05);
+      k.fillRect(-w * 0.34, -h * 1.42, w * 0.03, h * 0.12); k.fillRect(w * 0.31, -h * 1.42, w * 0.03, h * 0.12);
+      luces(0.6, 0.18, 0.08, 0.38);
+      escape = 0.32;
+      break;
+    default: // deportivo
+      rueda(-0.38, 0.2, 0.32); rueda(0.38, 0.2, 0.32);
+      trapecio(0.5, 0.47, 0.2, 0.62, color);
+      trapecio(0.34, 0.26, 0.62, 1, color);
+      trapecio(0.29, 0.23, 0.66, 0.94, '#263238');
+      luces(0.38, 0.12, 0.18, 0.27);
+      k.fillStyle = '#eceff1'; k.fillRect(-w * 0.1, -h * 0.42, w * 0.2, h * 0.1);
   }
-  g.restore();
+  if (nitro) {
+    k.fillStyle = Math.random() < 0.5 ? '#ffeb3b' : '#ff9800';
+    for (const lado of [-1, 1]) {
+      k.beginPath();
+      k.moveTo(lado * w * 0.04, -h * escape); k.lineTo(lado * w * 0.12, h * (0.15 + Math.random() * 0.25)); k.lineTo(lado * w * 0.2, -h * escape);
+      k.fill();
+    }
+  }
+  k.restore();
 }
 
 function texto(t, x, y, tam, tinta, alinear = 'left') {
@@ -789,7 +879,7 @@ function dibujarVista(p, w, h) {
       const sx = a.x + (b.x - a.x) * pct + escala * r.x * ANCHO_PISTA * w / 2;
       const sy = a.y + (b.y - a.y) * pct;
       const ancho = ANCHO_AUTO * escala * ANCHO_PISTA * w / 2;
-      if (ancho > 2) dibujarAuto(sx, sy, ancho, r.color, 0, false, r.humano && r.tNitro > 0);
+      if (ancho > 2) dibujarAuto(sx, sy, ancho, r.color, 0, false, r.humano && r.tNitro > 0, r.modelo);
     }
     g.restore();
   }
@@ -797,7 +887,7 @@ function dibujarVista(p, w, h) {
   const pct = p.vel / VEL_MAX;
   const rebote = (Math.abs(p.x) > 1 ? 4 : 1.2) * pct * (Math.random() - 0.5) * (h / 360) * 2;
   const anchoAuto = ANCHO_AUTO * (PROF_CAM / Z_JUGADOR) * ANCHO_PISTA * w / 2;
-  dibujarAuto(w / 2, h - h * 0.04 + rebote, anchoAuto, p.color, p.giro, p.frenando, p.tNitro > 0);
+  dibujarAuto(w / 2, h - h * 0.04 + rebote, anchoAuto, p.color, p.giro, p.frenando, p.tNitro > 0, p.modelo);
 
   // marcador
   const t = Math.round(13 * h / 360) + 2;
@@ -830,7 +920,7 @@ function dibujar() {
     g.fillStyle = pista.cesped[0];
     g.fillRect(0, H * 0.55, W, H * 0.45);
     poligono(W * 0.47, H * 0.55, W * 0.53, H * 0.55, W * 0.95, H, W * 0.05, H, pista.pista[0]);
-    dibujarAuto(W / 2, H * 0.96, W * 0.2, '#ffffff');
+    dibujarAuto(W / 2, H * 0.96, W * 0.2, autos[0].color, 0, false, false, autos[0].modelo);
     return;
   }
   if (c.jugadores.length === 1) {
@@ -947,10 +1037,74 @@ for (const grupo of document.querySelectorAll('.opciones[data-opcion]')) {
     opciones[nombre] = Number(b.dataset.valor);
     Guardado.escribir(`turbo_${nombre}`, opciones[nombre]);
     if (nombre === 'pista') construirPista(opciones.pista);
+    if (nombre === 'jugadores') { editando = Math.min(editando, opciones.jugadores - 1); actualizarGaraje(); }
     marcar();
   });
   marcar();
 }
+
+// --- garaje: modelo y color de cada jugador, con vista previa ---
+let editando = 0;
+const vista = document.getElementById('vista-auto').getContext('2d');
+const modelosHtml = document.getElementById('modelos');
+const coloresHtml = document.getElementById('colores');
+for (const [id, m] of Object.entries(MODELOS)) {
+  const b = document.createElement('button');
+  b.textContent = m.nombre;
+  b.dataset.modelo = id;
+  modelosHtml.appendChild(b);
+}
+for (const [nombre, hexa] of COLORES) {
+  const b = document.createElement('button');
+  b.style.background = hexa;
+  b.title = nombre;
+  b.setAttribute('aria-label', nombre);
+  b.dataset.color = hexa;
+  coloresHtml.appendChild(b);
+}
+// barra de 5 cuadros según dónde cae el valor entre el mínimo y el máximo de todos los modelos
+function barra(valor, propiedad, invertir = false) {
+  const valores = Object.values(MODELOS).map((m) => m[propiedad]);
+  let t = (valor - Math.min(...valores)) / (Math.max(...valores) - Math.min(...valores));
+  if (invertir) t = 1 - t;
+  const n = 1 + Math.round(t * 4);
+  return '■'.repeat(n) + '□'.repeat(5 - n);
+}
+function actualizarGaraje() {
+  const auto = autos[editando], m = MODELOS[auto.modelo];
+  document.getElementById('pestanas-auto').hidden = opciones.jugadores < 2;
+  document.querySelectorAll('#pestanas-auto button').forEach((b) => b.classList.toggle('activo', Number(b.dataset.j) === editando));
+  modelosHtml.querySelectorAll('button').forEach((b) => b.classList.toggle('activo', b.dataset.modelo === auto.modelo));
+  coloresHtml.querySelectorAll('button').forEach((b) => b.classList.toggle('activo', b.dataset.color === auto.color));
+  document.getElementById('ficha').innerHTML =
+    `Velocidad   <b>${barra(m.velMax, 'velMax')}</b> ${Math.round(m.velMax * KMH)} km/h\n`
+    + `Aceleración <b>${barra(m.acel, 'acel')}</b>\n`
+    + `Agarre      <b>${barra(m.agarre, 'agarre')}</b>\n`
+    + `Todoterreno <b>${barra(m.fuera, 'fuera', true)}</b>\n${m.nota}`;
+  // vista previa: un trozo de pista con el auto encima
+  const fondo = vista.createLinearGradient(0, 0, 0, 140);
+  fondo.addColorStop(0, '#3a8ee6');
+  fondo.addColorStop(0.55, '#b9e0ff');
+  vista.fillStyle = fondo;
+  vista.fillRect(0, 0, 360, 140);
+  vista.fillStyle = '#3fa34d';
+  vista.fillRect(0, 78, 360, 62);
+  vista.fillStyle = '#6b6b6b';
+  vista.beginPath(); vista.moveTo(160, 78); vista.lineTo(200, 78); vista.lineTo(330, 140); vista.lineTo(30, 140); vista.fill();
+  dibujarAuto(180, 128, 150, auto.color, 0, false, false, auto.modelo, vista);
+}
+function cambiarAuto(cambio) {
+  Object.assign(autos[editando], cambio);
+  Guardado.escribir('turbo_autos', autos);
+  actualizarGaraje();
+}
+modelosHtml.addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (b) cambiarAuto({ modelo: b.dataset.modelo }); });
+coloresHtml.addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (b) cambiarAuto({ color: b.dataset.color }); });
+document.getElementById('pestanas-auto').addEventListener('click', (ev) => {
+  const b = ev.target.closest('button');
+  if (b) { editando = Number(b.dataset.j); actualizarGaraje(); }
+});
+actualizarGaraje();
 document.getElementById('b-arrancar').addEventListener('click', nuevaCarrera);
 document.getElementById('b-otra').addEventListener('click', nuevaCarrera);
 document.getElementById('b-volver').addEventListener('click', irAlMenu);
