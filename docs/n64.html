@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#101624">
+<title>Emulador N64</title>
+<link rel="stylesheet" href="estilo.css">
+<style>
+  /* la pantalla de elegir juego sí necesita poder tocarse y seleccionarse con normalidad */
+  .elegir {
+    max-width: 520px;
+    margin: auto;
+    padding: 24px 18px;
+    text-align: center;
+    touch-action: auto;
+    user-select: text;
+    -webkit-user-select: text;
+    overflow-y: auto;
+    max-height: 100%;
+  }
+  .elegir .icono { font-size: 54px; }
+  .elegir h2 { font-size: 22px; margin: 8px 0 10px; }
+  .elegir p { color: var(--tenue); font-size: 15px; line-height: 1.5; margin: 0 0 14px; }
+  .elegir p.nota { font-size: 13px; }
+  .elegir p.error { color: #ef9a9a; font-weight: 600; }
+  .boton-grande {
+    display: inline-block;
+    margin: 6px 0 16px;
+    padding: 16px 28px;
+    border-radius: 14px;
+    background: var(--acento);
+    color: #08121c;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .elegir.arrastrando { outline: 3px dashed var(--acento); outline-offset: 6px; border-radius: 16px; }
+  #juego { width: 100%; height: 100%; display: none; }
+</style>
+</head>
+<body class="juego">
+<header class="barra">
+  <a href="index.html" aria-label="Volver al menú">⌂</a>
+  <h1>Emulador N64</h1>
+  <button id="b-cambiar" hidden>Cambiar juego</button>
+</header>
+<div class="zona" id="zona">
+  <section class="elegir" id="elegir">
+    <div class="icono">🎮</div>
+    <h2>Nintendo 64 en el navegador</h2>
+    <p>Elige un archivo de juego de Nintendo 64 (<b>.z64</b>, <b>.n64</b> o <b>.v64</b>, también dentro de un <b>.zip</b>)
+      guardado en tu teléfono, tablet o computador.</p>
+    <label class="boton-grande">Elegir juego<input type="file" id="archivo" accept=".z64,.n64,.v64,.zip,.7z" hidden></label>
+    <p class="nota">En el computador también puedes arrastrar el archivo aquí.</p>
+    <p class="nota">El juego no se sube a ningún lado: se ejecuta en tu propio aparato y las partidas guardadas quedan en este navegador.
+      La primera vez se descarga el emulador (unos pocos MB), así que necesitas internet.</p>
+    <p class="nota">Usa copias de cartuchos que tengas o juegos caseros (homebrew) de distribución libre.</p>
+    <p class="nota error" id="error"></p>
+  </section>
+  <div id="juego"></div>
+</div>
+<p class="ayuda">En pantallas táctiles aparece un mando en pantalla. Con teclado o con un mando USB o Bluetooth, los botones se configuran en el menú del emulador (ícono de control). Emulador: EmulatorJS con el núcleo mupen64plus.</p>
+
+<script>
+'use strict';
+// El emulador es EmulatorJS (código abierto, GPL-3.0) con el núcleo mupen64plus_next,
+// cargado desde su servidor oficial. Se fija la versión para que no cambie sin aviso.
+const EMULADOR = 'https://cdn.emulatorjs.org/4.2.3/data/';
+const EXTENSIONES = ['z64', 'n64', 'v64', 'zip', '7z'];
+
+const elegir = document.getElementById('elegir');
+const archivo = document.getElementById('archivo');
+const error = document.getElementById('error');
+const juego = document.getElementById('juego');
+const cambiar = document.getElementById('b-cambiar');
+
+function cargar(file) {
+  if (!file) return;
+  const extension = file.name.split('.').pop().toLowerCase();
+  if (!EXTENSIONES.includes(extension)) {
+    error.textContent = `“${file.name}” no parece un juego de Nintendo 64. Elige un archivo .z64, .n64 o .v64.`;
+    return;
+  }
+  error.textContent = '';
+  elegir.hidden = true;
+  juego.style.display = 'block';
+  cambiar.hidden = false;
+
+  // configuración que lee EmulatorJS al cargar
+  window.EJS_player = '#juego';
+  window.EJS_core = 'n64';
+  window.EJS_gameUrl = file;
+  window.EJS_gameName = file.name.replace(/\.[^.]+$/, ''); // nombre con el que se guardan las partidas
+  window.EJS_pathtodata = EMULADOR;
+  window.EJS_language = 'es-ES';
+  window.EJS_startOnLoaded = true;
+  window.EJS_color = '#4fc3f7';
+  window.EJS_backgroundColor = '#101624';
+
+  const s = document.createElement('script');
+  s.src = EMULADOR + 'loader.js';
+  s.onerror = () => {
+    elegir.hidden = false;
+    juego.style.display = 'none';
+    error.textContent = 'No se pudo descargar el emulador. Revisa la conexión a internet y vuelve a intentarlo.';
+  };
+  document.body.appendChild(s);
+}
+
+archivo.addEventListener('change', () => cargar(archivo.files[0]));
+
+// arrastrar y soltar en el computador
+for (const tipo of ['dragenter', 'dragover']) {
+  elegir.addEventListener(tipo, (e) => { e.preventDefault(); elegir.classList.add('arrastrando'); });
+}
+elegir.addEventListener('dragleave', () => elegir.classList.remove('arrastrando'));
+elegir.addEventListener('drop', (e) => {
+  e.preventDefault();
+  elegir.classList.remove('arrastrando');
+  cargar(e.dataTransfer.files[0]);
+});
+
+// el emulador no se puede reiniciar con otro juego en la misma página: se recarga
+cambiar.addEventListener('click', () => location.reload());
+</script>
+</body>
+</html>
