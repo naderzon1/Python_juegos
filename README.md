@@ -14,6 +14,7 @@ Están en la carpeta [`docs/`](docs/) y no necesitan instalar nada: se abren en 
 | **Duelo de naves** | arrastrar para mover; con el dedo apoyado dispara | tú vs PC, 2 en equipo vs PC, 1 vs 1 en la misma tablet |
 | **Naves 3D** | igual que el duelo de naves | los mismos tres modos, en 3D |
 | **Plataformas 3D** | palanca en pantalla para moverse (a fondo corre) y botón para saltar | 1 jugador, con música |
+| **Turbo Ruta HD** | igual que Turbo Ruta; botón 🎥 o tecla C para cambiar la cámara | versión en 3D (three.js): 7 circuitos cerrados con desniveles, luces y sombras, autos 3D del garaje, rivales que frenan en las curvas y adelantan, minimapa, gráficos altos o rápidos, 2 jugadores |
 | **Turbo Ruta** | botones de dirección, acelerar, freno y nitro | carreras de 4 vueltas en 7 pistas (Valle Verde, Desierto, Montaña, Ciudad, Playa, Otoño y Volcán) contra 10 rivales; garaje con 5 modelos de auto (cada uno maneja distinto) y 14 colores; 2 jugadores en pantalla dividida (en tablet, la mitad de arriba va girada para quien está enfrente) |
 
 En el computador se juegan con el teclado (la ayuda aparece bajo cada juego), y en cualquier aparato

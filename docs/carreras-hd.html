@@ -1,0 +1,1234 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#101624">
+<title>Turbo Ruta HD</title>
+<link rel="stylesheet" href="estilo.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="iconos/icono-192.png">
+<link rel="apple-touch-icon" href="iconos/icono-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+  .zona { position: relative; }
+  .zona canvas#escena { position: absolute; inset: 0; width: 100%; height: 100%; display: block; border-radius: 0; }
+  /* menú y resultados encima del juego */
+  .capa {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    padding: 12px; background: rgba(8, 12, 22, 0.78); z-index: 3; overflow-y: auto;
+  }
+  .tarjeta-menu {
+    width: min(480px, 100%); margin: auto; text-align: center; padding: 18px 16px; border-radius: 16px;
+    background: var(--panel); border: 1px solid var(--borde);
+  }
+  .tarjeta-menu h2 { margin: 0 0 4px; font-size: 30px; letter-spacing: 2px; color: #ffd54f; font-style: italic; }
+  .tarjeta-menu h2 small { font-size: 16px; color: #4fc3f7; letter-spacing: 1px; }
+  .tarjeta-menu p { margin: 0 0 12px; color: var(--tenue); font-size: 14px; }
+  .opciones { display: flex; gap: 6px; margin: 0 0 12px; flex-wrap: wrap; }
+  .opciones button {
+    flex: 1 1 22%; min-height: 40px; border-radius: 10px; border: 1px solid var(--borde);
+    background: var(--boton); color: var(--texto); font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .opciones button.activo { border-color: var(--acento); background: var(--boton-pulsado); }
+  .etiqueta { text-align: left; font-size: 12px; color: var(--tenue); margin: 0 0 4px 2px; }
+  #vista-auto { display: block; width: 100%; max-width: 380px; height: 150px; margin: 0 auto 8px; border-radius: 10px; }
+  .ficha { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: var(--tenue); line-height: 1.6;
+    margin: 0 0 8px; text-align: left; white-space: pre-wrap; }
+  .ficha b { color: #ffd54f; font-weight: 400; letter-spacing: 1px; }
+  .colores { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 0 0 14px; }
+  .colores button { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.25); cursor: pointer; }
+  .colores button.activo { border-color: #fff; box-shadow: 0 0 0 2px var(--acento); }
+  .arrancar {
+    width: 100%; min-height: 54px; margin-top: 4px; border: 0; border-radius: 12px; background: #ffd54f;
+    color: #1a1200; font: inherit; font-size: 20px; font-weight: 800; cursor: pointer;
+  }
+  .resultado { font-size: 16px; line-height: 1.7; margin: 6px 0 14px; }
+  .resultado b { color: #ffd54f; }
+  /* marcador de cada jugador, encima de su mitad de la pantalla */
+  .hud { position: absolute; left: 0; right: 0; pointer-events: none; z-index: 1;
+    font-family: ui-monospace, Consolas, "Courier New", monospace; color: #fff; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8); }
+  .hud.arriba { transform: rotate(180deg); }
+  .hud .pos { position: absolute; left: 12px; top: 8px; font-size: clamp(18px, 4.5vw, 30px); font-weight: 700; }
+  .hud .pos small { font-size: 0.55em; opacity: 0.8; }
+  .hud .vuelta { position: absolute; left: 12px; top: calc(8px + clamp(24px, 5.5vw, 38px)); font-size: clamp(12px, 3vw, 16px); }
+  .hud .tiempo { position: absolute; right: 12px; top: 8px; font-size: clamp(14px, 3.5vw, 20px); }
+  .hud .vel { position: absolute; right: 12px; top: calc(8px + clamp(22px, 5vw, 32px)); font-size: clamp(20px, 5vw, 34px); font-weight: 700; }
+  .hud .vel small { font-size: 0.45em; }
+  .hud .nitro { position: absolute; right: 12px; top: calc(8px + clamp(52px, 11vw, 74px)); font-size: clamp(12px, 3vw, 15px); color: #ffeb3b; }
+  .hud canvas.mapa { position: absolute; left: 10px; top: calc(8px + clamp(46px, 10vw, 66px)); width: clamp(80px, 22vw, 130px);
+    height: clamp(80px, 22vw, 130px); background: rgba(10, 15, 25, 0.45); border-radius: 10px; }
+  .hud .aviso { position: absolute; left: 0; right: 0; top: 30%; text-align: center; font-size: clamp(36px, 12vw, 96px); font-weight: 800; }
+  .hud .aviso.chico { font-size: clamp(22px, 6vw, 44px); }
+  /* mandos táctiles: uno por jugador; el del jugador 2 va girado para quien está enfrente */
+  .mandos { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between;
+    align-items: flex-end; padding: 8px; pointer-events: none; z-index: 2; }
+  .mandos.arriba { top: 0; bottom: auto; transform: rotate(180deg); }
+  .mandos .grupo { display: flex; gap: 8px; align-items: flex-end; pointer-events: auto; }
+  .mandos button { width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(255, 255, 255, 0.35);
+    background: rgba(16, 22, 36, 0.5); color: #fff; font: inherit; font-size: 22px; font-weight: 700; touch-action: none; }
+  .mandos button.chico { width: 54px; height: 54px; font-size: 11px; }
+  .mandos button.grande { width: 78px; height: 78px; font-size: 12px; background: rgba(46, 125, 50, 0.55); }
+  .mandos button.pulsado { background: rgba(79, 195, 247, 0.6); border-color: #fff; }
+  @media (hover: hover) and (pointer: fine) { .mandos { display: none; } }
+  @media (orientation: portrait) { .mandos .grupo:last-child { flex-direction: column; align-items: flex-end; } }
+  .sin-webgl { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 20px; text-align: center; }
+</style>
+</head>
+<body class="juego">
+<header class="barra">
+  <a href="index.html" aria-label="Volver al menú">⌂</a>
+  <h1>Turbo Ruta HD</h1>
+  <button id="b-menu">Menú</button>
+  <button id="b-camara" aria-label="Cambiar cámara">🎥</button>
+  <button id="b-sonido" aria-label="Sonido">🔊</button>
+  <button id="b-pausa" aria-label="Pausa">⏸</button>
+</header>
+<div class="zona" id="zona">
+  <canvas id="escena"></canvas>
+  <div class="hud" id="hud-0"><div class="pos"></div><div class="vuelta"></div><div class="tiempo"></div><div class="vel"></div>
+    <div class="nitro"></div><canvas class="mapa" width="130" height="130"></canvas><div class="aviso"></div></div>
+  <div class="hud" id="hud-1" hidden><div class="pos"></div><div class="vuelta"></div><div class="tiempo"></div><div class="vel"></div>
+    <div class="nitro"></div><canvas class="mapa" width="130" height="130"></canvas><div class="aviso"></div></div>
+  <div class="mandos arriba" id="mandos-1" hidden>
+    <div class="grupo"><button data-accion="izq">◀</button><button data-accion="der">▶</button></div>
+    <div class="grupo"><button class="chico" data-accion="nitro">NITRO</button><button class="chico" data-accion="freno">FRENO</button><button class="grande" data-accion="acel">ACELERAR</button></div>
+  </div>
+  <div class="mandos" id="mandos-0" hidden>
+    <div class="grupo"><button data-accion="izq">◀</button><button data-accion="der">▶</button></div>
+    <div class="grupo"><button class="chico" data-accion="nitro">NITRO</button><button class="chico" data-accion="freno">FRENO</button><button class="grande" data-accion="acel">ACELERAR</button></div>
+  </div>
+  <div class="capa" id="menu">
+    <div class="tarjeta-menu">
+      <h2>TURBO RUTA <small>HD</small></h2>
+      <p>Circuitos en 3D con subidas, bajadas y curvas de verdad: frena antes de las curvas cerradas o te saldrás. 3 vueltas contra 9 rivales.</p>
+      <div class="etiqueta">Jugadores</div>
+      <div class="opciones" data-opcion="jugadores"><button data-valor="1">1 jugador</button><button data-valor="2">2 jugadores</button></div>
+      <div class="etiqueta">Garaje</div>
+      <div class="opciones" id="pestanas-auto"><button data-j="0">Auto del jugador 1</button><button data-j="1">Auto del jugador 2</button></div>
+      <canvas id="vista-auto"></canvas>
+      <div class="opciones" id="modelos"></div>
+      <div class="ficha" id="ficha"></div>
+      <div class="colores" id="colores"></div>
+      <div class="etiqueta">Circuito</div>
+      <div class="opciones" data-opcion="pista">
+        <button data-valor="0">Valle Verde</button><button data-valor="1">Desierto</button><button data-valor="2">Montaña</button>
+        <button data-valor="3">Ciudad</button><button data-valor="4">Playa</button><button data-valor="5">Otoño</button>
+        <button data-valor="6">Volcán</button>
+      </div>
+      <div class="etiqueta">Rivales</div>
+      <div class="opciones" data-opcion="dificultad"><button data-valor="0">Fáciles</button><button data-valor="1">Normales</button><button data-valor="2">Difíciles</button></div>
+      <div class="etiqueta">Gráficos</div>
+      <div class="opciones" data-opcion="calidad"><button data-valor="1">Altos (con sombras)</button><button data-valor="0">Rápidos (teléfonos sencillos)</button></div>
+      <button class="arrancar" id="b-arrancar">¡A CORRER!</button>
+    </div>
+  </div>
+  <div class="capa" id="resultados" hidden>
+    <div class="tarjeta-menu">
+      <h2>META</h2>
+      <div class="resultado" id="texto-resultados"></div>
+      <div class="opciones"><button id="b-otra">Correr otra vez</button><button id="b-volver">Cambiar circuito</button></div>
+    </div>
+  </div>
+</div>
+<p class="ayuda">1 jugador: flechas o W A S D, nitro con Espacio · 2 jugadores: J1 W A S D + Espacio, J2 flechas + Enter · C cámara · P pausa · M sonido · R repetir · Con mando: palanca gira, A acelera, B frena, X nitro, Y cámara, Start pausa</p>
+
+<script src="comun.js"></script>
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+
+// --- reglas ------------------------------------------------------------------------
+const ANCHO = 14;                 // ancho del asfalto
+const LIMITE = ANCHO / 2 + 8.5;   // hasta dónde se puede salir (ahí está la baranda)
+const VEL = 85;                   // velocidad máxima de un auto normal (unidades por segundo)
+const KMH = 260 / VEL;            // para mostrar km/h
+const ACEL = 17, FRENO = 55, ROCE = 7;
+const CENTRIFUGA = 0.22;          // cuánto empujan las curvas hacia afuera
+const GIRO = 16;                  // velocidad lateral máxima al girar
+const VUELTAS = 3, RIVALES = 9, NITROS = 3, T_NITRO = 2.5, EXTRA_NITRO = 1.3;
+const LARGO_AUTO = 4.6, ANCHO_AUTO = 2.1;
+const ESCALA = 1.6;               // los circuitos se dibujan más grandes que sus puntos
+
+const COLORES = [['Blanco', '#f5f5f5'], ['Rojo', '#e53935'], ['Azul', '#1e88e5'], ['Amarillo', '#fdd835'], ['Verde', '#43a047'],
+  ['Naranja', '#fb8c00'], ['Morado', '#8e24aa'], ['Rosa', '#ec407a'], ['Celeste', '#29b6f6'], ['Negro', '#263238'],
+  ['Plata', '#b0bec5'], ['Dorado', '#c9a227'], ['Turquesa', '#00897b'], ['Vinotinto', '#7b1f2a']];
+// los mismos modelos que la versión clásica (fuera < 1: pierde menos velocidad fuera del asfalto)
+const MODELOS = {
+  deportivo: { nombre: 'Deportivo', velMax: 1.0, acel: 1.0, agarre: 1.0, fuera: 1.0, nota: 'Equilibrado en todo.' },
+  bolido: { nombre: 'Bólido', velMax: 1.06, acel: 0.9, agarre: 0.85, fuera: 1.2, nota: 'El más rápido, pero se abre en las curvas.' },
+  muscle: { nombre: 'Muscle', velMax: 0.98, acel: 1.2, agarre: 0.95, fuera: 1.0, nota: 'Arranca con mucha fuerza.' },
+  compacto: { nombre: 'Compacto', velMax: 0.93, acel: 1.15, agarre: 1.25, fuera: 1.0, nota: 'Pegado al piso en las curvas.' },
+  todoterreno: { nombre: 'Todoterreno', velMax: 0.92, acel: 1.0, agarre: 1.05, fuera: 0.6, nota: 'Frena mucho menos fuera del asfalto.' },
+};
+
+// circuitos: puntos [x, z, altura] que una curva suave une en un circuito cerrado, colores y decorado
+const PISTAS = [
+  { nombre: 'Valle Verde', cielo: ['#3a8ee6', '#cfe8ff'], niebla: '#cfe8f7', cesped: '#3f9a4a', cerros: '#4f8f45', sol: '#fff3c4',
+    borde: '#c62828', adornos: ['arbol', 'arbol', 'pino'], densidad: 0.55,
+    puntos: [[0, 0, 0], [150, -20, 4], [300, 0, 8], [380, 80, 6], [360, 200, 2], [260, 260, 0], [150, 220, 6], [60, 280, 10],
+      [-60, 260, 6], [-120, 160, 2], [-100, 60, 0]] },
+  { nombre: 'Desierto', cielo: ['#f08a3c', '#ffe7b5'], niebla: '#f7dcae', cesped: '#dcbb76', cerros: '#c48f4c', sol: '#fff7e0',
+    borde: '#1565c0', adornos: ['cactus', 'cactus', 'roca'], densidad: 0.35,
+    puntos: [[0, 0, 0], [400, 0, 0], [520, 80, 4], [520, 240, 8], [400, 320, 4], [100, 320, 0], [-60, 260, 2], [-80, 120, 6], [-40, 40, 2]] },
+  { nombre: 'Montaña', cielo: ['#0e2546', '#6f8db5'], niebla: '#8098b8', cesped: '#e6ecf1', cerros: '#5b6f8c', sol: '#eceff1',
+    borde: '#c62828', adornos: ['pino', 'pino', 'roca'], densidad: 0.6,
+    puntos: [[0, 0, 0], [120, -40, 10], [220, 20, 24], [200, 140, 30], [100, 180, 20], [160, 280, 12], [60, 360, 4],
+      [-80, 320, 14], [-120, 200, 26], [-60, 100, 16], [-80, 30, 6]] },
+  { nombre: 'Ciudad', noche: true, cielo: ['#04060d', '#1b2340'], niebla: '#141a30', cesped: '#2f3036', cerros: '#20263f', sol: '#fff9c4',
+    borde: '#ffeb3b', adornos: ['edificio'], densidad: 0.9, farolas: true,
+    puntos: [[0, 0, 0], [200, 0, 0], [230, 20, 0], [240, 60, 0], [240, 200, 0], [220, 235, 0], [180, 240, 0], [60, 240, 0], [30, 260, 0],
+      [20, 300, 0], [-20, 330, 0], [-120, 330, 0], [-150, 300, 0], [-150, 40, 0], [-130, 5, 0], [-90, 0, 0]] },
+  { nombre: 'Playa', mar: true, cielo: ['#ff7e5f', '#ffd3a1'], niebla: '#ffc8a2', cesped: '#efd9a5', cerros: '#7a9e8f', sol: '#fff3e0',
+    borde: '#ff7043', adornos: ['palmera', 'palmera', 'roca'], densidad: 0.4,
+    puntos: [[0, 0, 0], [160, -30, 2], [320, -10, 6], [420, 60, 4], [440, 180, 2], [360, 260, 6], [220, 240, 2], [120, 300, 4],
+      [-20, 280, 8], [-100, 180, 4], [-80, 60, 2]] },
+  { nombre: 'Otoño', cielo: ['#7fa7c9', '#efe2cd'], niebla: '#e8d3b5', cesped: '#b9974f', cerros: '#a85d22', sol: '#fff8e1',
+    borde: '#6d4c41', adornos: ['otono', 'otono', 'arbol'], densidad: 0.65,
+    puntos: [[0, 0, 0], [100, 30, 8], [200, -10, 14], [300, 40, 6], [320, 150, 12], [230, 220, 20], [120, 180, 10], [60, 260, 4],
+      [-60, 240, 12], [-90, 130, 6], [-60, 50, 2]] },
+  { nombre: 'Volcán', lava: true, cielo: ['#1c0707', '#8a2c18'], niebla: '#4a1d14', cesped: '#2b2224', cerros: '#2a1a1a', sol: '#ffab40',
+    borde: '#ff6d00', adornos: ['lava', 'roca', 'roca'], densidad: 0.45,
+    puntos: [[0, 0, 0], [140, 0, 10], [220, 60, 30], [160, 140, 45], [60, 120, 30], [20, 200, 20], [120, 280, 36], [20, 360, 50],
+      [-100, 320, 30], [-140, 200, 16], [-100, 80, 6]] },
+];
+
+// --- sonido: la música y los efectos de la versión clásica ---
+const PASO = 0.17;
+const MELODIA = [[76, 1], [74, 1], [71, 1], [74, 1], [76, 2], [79, 2], [79, 1], [76, 1], [72, 1], [76, 1], [79, 2], [84, 2],
+  [81, 1], [78, 1], [74, 1], [78, 1], [81, 2], [78, 1], [76, 1], [75, 2], [78, 2], [83, 2], [78, 2],
+  [76, 1], [79, 1], [83, 1], [79, 1], [88, 2], [83, 2], [84, 1], [81, 1], [76, 1], [81, 1], [84, 2], [88, 2],
+  [86, 1], [83, 1], [78, 1], [83, 1], [86, 1], [88, 1], [86, 1], [83, 1], [83, 2], [78, 2], [75, 2], [76, 2]];
+const BAJO = [40, 36, 38, 35, 40, 45, 38].flatMap((r) => [[r, 1], [r + 12, 1], [r, 1], [r + 12, 1], [r, 1], [r + 12, 1], [r, 1], [r + 12, 1]])
+  .concat([[35, 1], [47, 1], [35, 1], [47, 1], [40, 1], [52, 1], [40, 1], [52, 1]]);
+Sonido.definir('musica', (s) => {
+  const p = [];
+  s.melodia(p, MELODIA, PASO, 0.11, 'cuadrada');
+  s.melodia(p, BAJO, PASO, 0.24, 'triangular');
+  for (let k = 0; k < 64; k++) {
+    if (k % 2 === 0) s.tono(p, k * PASO, 0.09, 140, 45, 0.35, 'triangular');
+    s.tono(p, k * PASO, 0.025, 0, null, 0.05, 'ruido');
+  }
+  return s.recortar(p, 64 * PASO);
+});
+Sonido.definir('cuenta', (s) => { const p = []; s.tono(p, 0, 0.18, 620, null, 0.25); return p; });
+Sonido.definir('ya', (s) => { const p = []; s.tono(p, 0, 0.45, 1240, null, 0.25); return p; });
+Sonido.definir('nitro', (s) => { const p = []; s.tono(p, 0, 0.6, 0, null, 0.25, 'ruido'); s.tono(p, 0, 0.6, 200, 900, 0.18); return p; });
+Sonido.definir('choque', (s) => { const p = []; s.tono(p, 0, 0.35, 0, null, 0.4, 'ruido'); s.tono(p, 0, 0.3, 160, 40, 0.4, 'triangular'); return p; });
+Sonido.definir('golpe', (s) => { const p = []; s.tono(p, 0, 0.1, 300, 120, 0.3); return p; });
+Sonido.definir('vuelta', (s) => { const p = []; s.melodia(p, [[84, 1], [91, 3]], 0.09, 0.25, 'cuadrada'); return p; });
+Sonido.definir('meta', (s) => {
+  const p = [];
+  s.melodia(p, [[72, 1], [76, 1], [79, 1], [84, 1], [88, 1], [91, 1], [96, 6]], 0.1, 0.22, 'cuadrada');
+  s.melodia(p, [[48, 3], [55, 3], [60, 6]], 0.1, 0.3, 'triangular');
+  return p;
+});
+
+// --- escena -------------------------------------------------------------------------
+const zona = document.getElementById('zona');
+const lienzo = document.getElementById('escena');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas: lienzo, antialias: true });
+} catch {
+  zona.insertAdjacentHTML('beforeend', '<div class="sin-webgl">Este navegador no puede mostrar gráficos 3D. Prueba la versión clásica de Turbo Ruta.</div>');
+  throw new Error('sin WebGL');
+}
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const escena = new THREE.Scene();
+const sol = new THREE.DirectionalLight('#ffffff', 2);
+sol.shadow.mapSize.set(1024, 1024);
+Object.assign(sol.shadow.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 1, far: 260 });
+sol.shadow.bias = -0.0006;
+const cielo = new THREE.HemisphereLight('#ffffff', '#555555', 1);
+escena.add(sol, sol.target, cielo);
+const camaras = [0, 1].map(() => new THREE.PerspectiveCamera(70, 1, 0.5, 2600));
+
+const opciones = {
+  jugadores: Guardado.leer('turbo_jugadores', 1), pista: Guardado.leer('turbo_pista', 0), dificultad: Guardado.leer('turbo_dificultad', 1),
+  calidad: Guardado.leer('turbo_hd_calidad', matchMedia('(pointer: coarse)').matches ? 0 : 1),
+};
+const tactil = matchMedia('(pointer: coarse)').matches;
+const autos = [{ modelo: 'deportivo', color: '#f5f5f5' }, { modelo: 'muscle', color: '#fb8c00' }];
+Guardado.leer('turbo_autos', []).forEach((a, i) => {
+  if (i < 2 && a && MODELOS[a.modelo] && COLORES.some(([, h]) => h === a.color)) autos[i] = { modelo: a.modelo, color: a.color };
+});
+
+function aplicarCalidad() {
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, opciones.calidad ? 2 : 1));
+  renderer.shadowMap.enabled = !!opciones.calidad;
+  sol.castShadow = !!opciones.calidad;
+  escena.traverse((o) => { if (o.material) o.material.needsUpdate = true; });
+  ajustar();
+}
+function ajustar() {
+  renderer.setSize(zona.clientWidth, zona.clientHeight, false);
+}
+new ResizeObserver(ajustar).observe(zona);
+
+// --- texturas dibujadas en el momento ---
+function textura(ancho, alto, dibujar, repetir = true) {
+  const c = document.createElement('canvas');
+  c.width = ancho;
+  c.height = alto;
+  dibujar(c.getContext('2d'), ancho, alto);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  if (repetir) t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 4;
+  return t;
+}
+const TEX_ASFALTO = textura(64, 512, (g, w, h) => {
+  g.fillStyle = '#4b4d52'; g.fillRect(0, 0, w, h);
+  for (let k = 0; k < 2500; k++) { g.fillStyle = Math.random() < 0.5 ? '#55585e' : '#43454a'; g.fillRect(Math.random() * w, Math.random() * h, 1, 1); }
+  g.fillStyle = '#eeeeee'; g.fillRect(2, 0, 3, h); g.fillRect(w - 5, 0, 3, h);
+  g.fillRect(w / 2 - 1.5, 0, 3, h * 0.45);
+});
+const TEX_META = textura(64, 64, (g, w, h) => {
+  for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) { g.fillStyle = (x + y) % 2 ? '#111' : '#f5f5f5'; g.fillRect(x * 8, y * 8, 8, 8); }
+});
+const texBordillo = (color) => textura(8, 16, (g) => { g.fillStyle = color; g.fillRect(0, 0, 8, 8); g.fillStyle = '#f5f5f5'; g.fillRect(0, 8, 8, 8); });
+const texSuelo = (color) => textura(64, 64, (g, w, h) => {
+  const base = new THREE.Color(color);
+  g.fillStyle = color; g.fillRect(0, 0, w, h);
+  for (let k = 0; k < 900; k++) {
+    const c = base.clone().offsetHSL(0, 0, (Math.random() - 0.5) * 0.08);
+    g.fillStyle = '#' + c.getHexString(); g.fillRect(Math.random() * w, Math.random() * h, 2, 2);
+  }
+});
+const TEX_VENTANAS = textura(64, 128, (g, w, h) => {
+  g.fillStyle = '#1b2033'; g.fillRect(0, 0, w, h);
+  for (let y = 4; y < h; y += 10) for (let x = 4; x < w; x += 10) {
+    g.fillStyle = Math.random() < 0.38 ? '#ffd780' : '#0e1220'; g.fillRect(x, y, 6, 6);
+  }
+});
+const TEX_GRIETAS = textura(128, 128, (g, w, h) => {
+  g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
+  g.strokeStyle = '#ff6d00'; g.lineWidth = 1.5;
+  for (let k = 0; k < 10; k++) {
+    g.beginPath(); let x = Math.random() * w, y = Math.random() * h; g.moveTo(x, y);
+    for (let s = 0; s < 6; s++) { x += (Math.random() - 0.5) * 30; y += (Math.random() - 0.5) * 30; g.lineTo(x, y); }
+    g.stroke();
+  }
+});
+
+// --- circuito: se recorre por la distancia s; d es cuánto se está corrido a la derecha del centro ---
+let pista = PISTAS[0];
+let N = 0, L = 0, ds = 0;
+let pos = [], tang = [], der = [], curv = [], pend = [], lineaIdeal = [];
+let grupoPista = null, mapaPuntos = [];
+
+function construirPista(indice) {
+  pista = PISTAS[indice];
+  if (grupoPista) {
+    escena.remove(grupoPista);
+    grupoPista.traverse((o) => { if (o.geometry) o.geometry.dispose(); });
+  }
+  grupoPista = new THREE.Group();
+  escena.add(grupoPista);
+  const curva = new THREE.CatmullRomCurve3(pista.puntos.map(([x, z, y]) => new THREE.Vector3(x * ESCALA, y, z * ESCALA)), true, 'centripetal');
+  L = curva.getLength();
+  N = Math.round(L / 2);
+  ds = L / N;
+  pos = curva.getSpacedPoints(N).slice(0, N);
+  const arriba = new THREE.Vector3(0, 1, 0);
+  tang = []; der = []; curv = []; pend = [];
+  const rumbo = [];
+  for (let i = 0; i < N; i++) {
+    const a = pos[(i - 1 + N) % N], b = pos[(i + 1) % N];
+    const t = new THREE.Vector3(b.x - a.x, 0, b.z - a.z).normalize();
+    tang.push(t);
+    der.push(new THREE.Vector3().crossVectors(t, arriba).normalize()); // a la derecha de quien maneja
+    rumbo.push(Math.atan2(t.x, t.z));
+    pend.push((b.y - a.y) / (2 * ds));
+  }
+  for (let i = 0; i < N; i++) { // curvatura: cuánto gira el rumbo por unidad recorrida (positiva = curva a la izquierda)
+    let dif = rumbo[(i + 1) % N] - rumbo[(i - 1 + N) % N];
+    dif = Math.atan2(Math.sin(dif), Math.cos(dif));
+    curv.push(dif / (2 * ds));
+  }
+  const suave = curv.map((_, i) => { let s = 0; for (let k = -3; k <= 3; k++) s += curv[(i + k + N) % N]; return s / 7; });
+  curv = suave;
+  // línea ideal: por el lado de adentro de la curva que viene
+  lineaIdeal = curv.map((_, i) => {
+    let k = 0;
+    for (let a = 0; a < 15; a++) k += curv[(i + a + 5) % N];
+    k /= 15;
+    return -Math.sign(k) * Math.min(ANCHO * 0.32, Math.abs(k) * 700);
+  });
+
+  // mallas: asfalto, bordillos, banquinas con su terraplén y barandas
+  const cinta = (desde, hasta, alturaExtra, material, vPorUnidad, sombra = true) => {
+    const v = [], uv = [], indices = [];
+    for (let i = 0; i <= N; i++) {
+      const k = i % N, p = pos[k], r = der[k];
+      for (const [lado, u] of [[desde, 0], [hasta, 1]]) {
+        v.push(p.x + r.x * lado, p.y + alturaExtra, p.z + r.z * lado);
+        uv.push(u, i * ds * vPorUnidad);
+      }
+      if (i < N) indices.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2); // caras hacia arriba
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    const malla = new THREE.Mesh(geo, material);
+    malla.receiveShadow = sombra;
+    grupoPista.add(malla);
+    return malla;
+  };
+  const pared = (lado, abajo, arribaY, material, vPorUnidad) => { // superficie vertical a lo largo del circuito
+    const v = [], uv = [], indices = [];
+    for (let i = 0; i <= N; i++) {
+      const k = i % N, p = pos[k], r = der[k];
+      v.push(p.x + r.x * lado, abajo === null ? -2 : p.y + abajo, p.z + r.z * lado, p.x + r.x * lado, p.y + arribaY, p.z + r.z * lado);
+      uv.push(i * ds * vPorUnidad, 0, i * ds * vPorUnidad, 1);
+      if (i < N) indices.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(v, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setIndex(indices);
+    geo.computeVertexNormals();
+    const malla = new THREE.Mesh(geo, material);
+    malla.receiveShadow = true;
+    grupoPista.add(malla);
+  };
+  const matSuelo = new THREE.MeshStandardMaterial({ map: texSuelo(pista.cesped), roughness: 1 });
+  matSuelo.map.repeat.set(1, 1);
+  const asfalto = new THREE.MeshStandardMaterial({ map: TEX_ASFALTO, roughness: pista.noche ? 0.55 : 0.85, metalness: 0.05 });
+  cinta(-ANCHO / 2, ANCHO / 2, 0.06, asfalto, 1 / 40);
+  const bordillo = new THREE.MeshStandardMaterial({ map: texBordillo(pista.borde), roughness: 0.7 });
+  cinta(-ANCHO / 2 - 1.3, -ANCHO / 2, 0.08, bordillo, 1 / 6);
+  cinta(ANCHO / 2, ANCHO / 2 + 1.3, 0.08, bordillo, 1 / 6);
+  const banquina = new THREE.MeshStandardMaterial({ map: texSuelo(pista.cesped), roughness: 1 });
+  banquina.map.repeat.set(4, 1);
+  cinta(-LIMITE - 1.5, LIMITE + 1.5, 0.02, banquina, 1 / 8);
+  const terraplen = new THREE.MeshStandardMaterial({ color: new THREE.Color(pista.cesped).multiplyScalar(0.7), roughness: 1, side: THREE.DoubleSide });
+  pared(-LIMITE - 1.5, null, 0.02, terraplen, 1 / 8);
+  pared(LIMITE + 1.5, null, 0.02, terraplen, 1 / 8);
+  const baranda = new THREE.MeshStandardMaterial({ color: pista.noche ? '#9aa3b5' : '#d7dbe0', metalness: 0.6, roughness: 0.35, side: THREE.DoubleSide });
+  pared(-LIMITE - 0.6, 0.35, 1.15, baranda, 1 / 4);
+  pared(LIMITE + 0.6, 0.35, 1.15, baranda, 1 / 4);
+
+  // línea de meta y pórtico de salida
+  const p0 = pos[0], t0 = tang[0];
+  const meta = new THREE.Mesh(new THREE.PlaneGeometry(ANCHO, 3), new THREE.MeshStandardMaterial({ map: TEX_META, roughness: 0.8 }));
+  meta.material.map.repeat.set(ANCHO / 2, 0.75);
+  meta.rotation.x = -Math.PI / 2;
+  meta.rotation.z = Math.atan2(t0.x, t0.z);
+  meta.position.set(p0.x, p0.y + 0.09, p0.z);
+  meta.receiveShadow = true;
+  grupoPista.add(meta);
+  const portico = new THREE.Group();
+  const matPortico = new THREE.MeshStandardMaterial({ color: '#263238', metalness: 0.5, roughness: 0.4 });
+  for (const lado of [-1, 1]) {
+    const poste = new THREE.Mesh(new THREE.BoxGeometry(0.8, 9, 0.8), matPortico);
+    poste.position.set(lado * (ANCHO / 2 + 2), 4.5, 0);
+    poste.castShadow = true;
+    portico.add(poste);
+  }
+  const cartel = new THREE.Mesh(new THREE.BoxGeometry(ANCHO + 5, 2.2, 0.6), new THREE.MeshStandardMaterial({
+    map: textura(512, 64, (g, w, h) => {
+      g.fillStyle = '#ffd54f'; g.fillRect(0, 0, w, h);
+      g.fillStyle = '#b71c1c'; g.font = 'italic bold 46px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.fillText('TURBO RUTA', w / 2, h / 2 + 2);
+    }, false), roughness: 0.6 }));
+  cartel.position.y = 9;
+  cartel.castShadow = true;
+  portico.add(cartel);
+  portico.position.copy(p0);
+  portico.rotation.y = Math.atan2(t0.x, t0.z);
+  grupoPista.add(portico);
+
+  // suelo, mar y horizonte
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (const p of pos) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); minZ = Math.min(minZ, p.z); maxZ = Math.max(maxZ, p.z); }
+  const centro = new THREE.Vector3((minX + maxX) / 2, 0, (minZ + maxZ) / 2);
+  const radio = Math.hypot(maxX - minX, maxZ - minZ) / 2;
+  const tamSuelo = pista.mar ? radio * 2 + 260 : 4200;
+  const suelo = new THREE.Mesh(pista.mar ? new THREE.CircleGeometry(tamSuelo / 2, 64) : new THREE.PlaneGeometry(tamSuelo, tamSuelo), matSuelo);
+  matSuelo.map.repeat.set(tamSuelo / 30, tamSuelo / 30);
+  if (pista.lava) Object.assign(matSuelo, { emissive: new THREE.Color('#ff5a00'), emissiveMap: TEX_GRIETAS, emissiveIntensity: 1.2 });
+  if (pista.lava) TEX_GRIETAS.repeat.set(tamSuelo / 60, tamSuelo / 60);
+  suelo.rotation.x = -Math.PI / 2;
+  suelo.position.set(centro.x, -2, centro.z);
+  suelo.receiveShadow = true;
+  grupoPista.add(suelo);
+  if (pista.mar) {
+    const mar = new THREE.Mesh(new THREE.PlaneGeometry(6000, 6000), new THREE.MeshStandardMaterial({ color: '#2a6f97', roughness: 0.15, metalness: 0.4 }));
+    mar.rotation.x = -Math.PI / 2;
+    mar.position.set(centro.x, -2.6, centro.z);
+    grupoPista.add(mar);
+  }
+  const cieloTex = textura(4, 256, (g, w, h) => {
+    const grad = g.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, pista.cielo[0]); grad.addColorStop(0.55, pista.cielo[1]); grad.addColorStop(1, pista.niebla);
+    g.fillStyle = grad; g.fillRect(0, 0, w, h);
+  }, false);
+  const boveda = new THREE.Mesh(new THREE.SphereGeometry(2400, 24, 16), new THREE.MeshBasicMaterial({ map: cieloTex, side: THREE.BackSide, fog: false, depthWrite: false }));
+  boveda.position.copy(centro);
+  grupoPista.add(boveda);
+  const horizonte = textura(2048, 256, (g, w, h) => {
+    g.clearRect(0, 0, w, h);
+    g.fillStyle = pista.cerros;
+    if (pista.noche) { // edificios en el horizonte, con ventanas encendidas
+      for (let x = 0; x < w; x += 22 + Math.random() * 30) {
+        const alto = 60 + Math.random() * 150, ancho = 20 + Math.random() * 40;
+        g.fillStyle = pista.cerros; g.fillRect(x, h - alto, ancho, alto);
+        g.fillStyle = '#ffd780';
+        for (let k = 0; k < alto / 9; k++) if (Math.random() < 0.3) g.fillRect(x + 4 + Math.random() * (ancho - 8), h - alto + k * 9 + 3, 3, 3);
+      }
+    } else {
+      g.beginPath(); g.moveTo(0, h);
+      for (let x = 0; x <= w; x += 8) {
+        const t = x / w * Math.PI * 2;
+        g.lineTo(x, h - h * (0.25 + 0.2 * Math.sin(t * 3) + 0.15 * Math.sin(t * 7 + 1) + 0.08 * Math.sin(t * 17)));
+      }
+      g.lineTo(w, h); g.fill();
+    }
+  }, false);
+  horizonte.wrapS = THREE.RepeatWrapping;
+  const anillo = new THREE.Mesh(new THREE.CylinderGeometry(2000, 2000, 320, 48, 1, true),
+    new THREE.MeshBasicMaterial({ map: horizonte, transparent: true, side: THREE.BackSide, fog: false, depthWrite: false }));
+  anillo.position.set(centro.x, 120, centro.z);
+  grupoPista.add(anillo);
+  if (!pista.noche) {
+    const disco = new THREE.Mesh(new THREE.CircleGeometry(90, 32), new THREE.MeshBasicMaterial({ color: pista.sol, fog: false }));
+    disco.position.set(centro.x - 1300, 700, centro.z + 1500);
+    disco.lookAt(centro);
+    grupoPista.add(disco);
+  }
+
+  // luz y niebla de cada circuito
+  escena.fog = new THREE.Fog(pista.niebla, pista.noche ? 60 : 110, pista.noche ? 420 : 900);
+  escena.background = new THREE.Color(pista.niebla);
+  cielo.color.set(pista.noche ? '#6d7cb0' : '#ffffff');
+  cielo.groundColor.set(pista.cesped);
+  cielo.intensity = pista.noche ? 0.55 : pista.lava ? 0.7 : 1.1;
+  sol.color.set(pista.noche ? '#9fb2ff' : pista.lava ? '#ffb380' : '#fff4e0');
+  sol.intensity = pista.noche ? 0.45 : 2.2;
+
+  colocarAdornos();
+  // contorno del circuito para el minimapa
+  mapaPuntos = pos.filter((_, i) => i % 4 === 0).map((p) => [(p.x - minX) / Math.max(maxX - minX, maxZ - minZ), (p.z - minZ) / Math.max(maxX - minX, maxZ - minZ)]);
+  mapaPuntos.escala = { minX, minZ, lado: Math.max(maxX - minX, maxZ - minZ) };
+}
+
+// decorado alrededor del circuito, con mallas repetidas (muy livianas de dibujar)
+function colocarAdornos() {
+  // cuadrícula para saber rápido si un lugar queda cerca de la pista
+  const celdas = new Map();
+  pos.forEach((p, i) => {
+    const clave = Math.floor(p.x / 25) + ',' + Math.floor(p.z / 25);
+    if (!celdas.has(clave)) celdas.set(clave, []);
+    celdas.get(clave).push(i);
+  });
+  const libre = (x, z, margen) => {
+    const cx = Math.floor(x / 25), cz = Math.floor(z / 25);
+    for (let a = -2; a <= 2; a++) for (let b = -2; b <= 2; b++) {
+      for (const i of celdas.get((cx + a) + ',' + (cz + b)) || []) if (Math.hypot(pos[i].x - x, pos[i].z - z) < margen) return false;
+    }
+    return true;
+  };
+  let semilla = 11;
+  const azar = () => (semilla = (semilla * 16807) % 2147483647) / 2147483647;
+  const lugares = {};
+  for (let i = 0; i < N; i += 3) {
+    for (const lado of [-1, 1]) {
+      if (azar() > pista.densidad) continue;
+      const tipo = pista.adornos[Math.floor(azar() * pista.adornos.length)];
+      const dist = (tipo === 'edificio' ? LIMITE + 14 : LIMITE + 5) + azar() * (tipo === 'edificio' ? 25 : 60);
+      const x = pos[i].x + der[i].x * lado * dist, z = pos[i].z + der[i].z * lado * dist;
+      if (!libre(x, z, tipo === 'edificio' ? LIMITE + 12 : LIMITE + 3)) continue;
+      (lugares[tipo] = lugares[tipo] || []).push({ x, z, v: azar(), giro: azar() * Math.PI * 2 });
+    }
+  }
+  if (pista.farolas) {
+    for (let i = 0; i < N; i += 15) {
+      for (const lado of [-1, 1]) {
+        (lugares.farola = lugares.farola || []).push({ x: pos[i].x + der[i].x * lado * (LIMITE + 2), z: pos[i].z + der[i].z * lado * (LIMITE + 2), y: pos[i].y, v: 0, giro: 0 });
+      }
+    }
+  }
+  const matriz = new THREE.Matrix4(), q = new THREE.Quaternion(), color = new THREE.Color();
+  // cada tipo de adorno: piezas [geometría, material, posición, escala] que se repiten en cada lugar
+  const piezas = {
+    arbol: [[new THREE.CylinderGeometry(0.4, 0.6, 4, 6), new THREE.MeshStandardMaterial({ color: '#6d4c41' }), [0, 2, 0], 1],
+      [new THREE.IcosahedronGeometry(3.4, 0), new THREE.MeshStandardMaterial({ color: '#2e7d32', flatShading: true }), [0, 5.6, 0], 1, ['#2e7d32', '#43a047', '#1b5e20']]],
+    pino: [[new THREE.CylinderGeometry(0.35, 0.5, 2.5, 6), new THREE.MeshStandardMaterial({ color: '#5d4037' }), [0, 1.2, 0], 1],
+      [new THREE.ConeGeometry(2.8, 8, 7), new THREE.MeshStandardMaterial({ color: '#1b5e20', flatShading: true }), [0, 6, 0], 1, ['#1b5e20', '#2e5d32', '#24492b']]],
+    otono: [[new THREE.CylinderGeometry(0.4, 0.6, 4, 6), new THREE.MeshStandardMaterial({ color: '#5d4037' }), [0, 2, 0], 1],
+      [new THREE.IcosahedronGeometry(3.4, 0), new THREE.MeshStandardMaterial({ color: '#e65100', flatShading: true }), [0, 5.6, 0], 1, ['#d84315', '#ef6c00', '#f9a825', '#c62828']]],
+    palmera: [[new THREE.CylinderGeometry(0.3, 0.5, 9, 6), new THREE.MeshStandardMaterial({ color: '#8d6e63' }), [0, 4.5, 0], 1],
+      [new THREE.ConeGeometry(4, 1.6, 7), new THREE.MeshStandardMaterial({ color: '#558b2f', flatShading: true }), [0, 9.2, 0], 1]],
+    cactus: [[new THREE.CylinderGeometry(0.7, 0.8, 6, 7), new THREE.MeshStandardMaterial({ color: '#2e7d32', flatShading: true }), [0, 3, 0], 1],
+      [new THREE.CylinderGeometry(0.45, 0.45, 2.5, 6), new THREE.MeshStandardMaterial({ color: '#2e7d32', flatShading: true }), [1.3, 3.6, 0], 1]],
+    roca: [[new THREE.DodecahedronGeometry(2.2, 0), new THREE.MeshStandardMaterial({ color: '#8d8d8d', flatShading: true }), [0, 0.8, 0], 1, ['#8d8d8d', '#7a6e64', '#9e9e9e']]],
+    lava: [[new THREE.DodecahedronGeometry(2.6, 0), new THREE.MeshStandardMaterial({ color: '#1b1416', emissive: '#ff4d00', emissiveIntensity: 0.6, flatShading: true }), [0, 0.8, 0], 1]],
+    edificio: [[new THREE.BoxGeometry(1, 1, 1), new THREE.MeshStandardMaterial({ map: TEX_VENTANAS, emissiveMap: TEX_VENTANAS, emissive: '#ffffff', emissiveIntensity: 0.9, roughness: 0.8 }), [0, 0.5, 0], 'edificio']],
+    farola: [[new THREE.CylinderGeometry(0.15, 0.2, 8, 6), new THREE.MeshStandardMaterial({ color: '#90a4ae', metalness: 0.6 }), [0, 4, 0], 1],
+      [new THREE.SphereGeometry(0.6, 8, 6), new THREE.MeshBasicMaterial({ color: '#fff3c4' }), [0, 8.2, 0], 1]],
+  };
+  for (const [tipo, lista] of Object.entries(lugares)) {
+    for (const [geo, mat, [ox, oy, oz], esc, tonos] of piezas[tipo]) {
+      const malla = new THREE.InstancedMesh(geo, mat, lista.length);
+      lista.forEach((l, k) => {
+        q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), l.giro);
+        let sx = 1, sy = 1, sz = 1, baseY = -2;
+        if (esc === 'edificio') { sx = 12 + l.v * 14; sz = 12 + (1 - l.v) * 12; sy = 18 + l.v * 55; }
+        else { sx = sy = sz = 0.8 + l.v * 0.6; }
+        if (tipo === 'farola') baseY = l.y + 0.02;
+        const p = new THREE.Vector3(ox * sx, oy * sy, oz * sz).applyQuaternion(q);
+        matriz.compose(new THREE.Vector3(l.x + p.x, baseY + p.y, l.z + p.z), q, new THREE.Vector3(sx, sy, sz));
+        malla.setMatrixAt(k, matriz);
+        if (tonos) malla.setColorAt(k, color.set(tonos[Math.floor(l.v * tonos.length)]));
+      });
+      malla.castShadow = tipo !== 'edificio';
+      malla.receiveShadow = true;
+      grupoPista.add(malla);
+    }
+  }
+}
+
+// --- autos en 3D, uno por modelo ---
+function crearAuto(modelo, colorAuto) {
+  const auto = new THREE.Group();
+  const cuerpo = new THREE.Group(); // la carrocería se inclina; las ruedas no
+  auto.add(cuerpo);
+  const pintura = new THREE.MeshStandardMaterial({ color: colorAuto, metalness: 0.45, roughness: 0.32 });
+  const vidrio = new THREE.MeshStandardMaterial({ color: '#16202c', metalness: 0.7, roughness: 0.12 });
+  const negro = new THREE.MeshStandardMaterial({ color: '#15171a', roughness: 0.7 });
+  const cromo = new THREE.MeshStandardMaterial({ color: '#cfd8dc', metalness: 0.9, roughness: 0.2 });
+  const luzFreno = new THREE.MeshStandardMaterial({ color: '#4a0000', emissive: '#ff1744', emissiveIntensity: 0.6 });
+  const luzDelantera = new THREE.MeshStandardMaterial({ color: '#ffffff', emissive: '#fffde7', emissiveIntensity: 1.2 });
+  const caja = (w, h, l, x, y, z, mat, padre = cuerpo) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, l), mat);
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    padre.add(m);
+    return m;
+  };
+  const ruedas = [];
+  const rueda = (x, z, r, w) => {
+    const g = new THREE.Group();
+    const llanta = new THREE.Mesh(new THREE.CylinderGeometry(r, r, w, 16), negro);
+    llanta.rotation.z = Math.PI / 2;
+    llanta.castShadow = true;
+    const tapa = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.55, r * 0.55, w + 0.02, 10), cromo);
+    tapa.rotation.z = Math.PI / 2;
+    g.add(llanta, tapa);
+    g.position.set(x, r, z);
+    auto.add(g);
+    ruedas.push(g);
+  };
+  let largo = 4.4, ancho = 2.0, alturaLuces = 0.6;
+  switch (modelo) {
+    case 'bolido':
+      largo = 4.7;
+      caja(0.95, 0.45, 4.6, 0, 0.45, 0, pintura);
+      caja(1.9, 0.35, 1.7, 0, 0.4, -0.2, pintura);
+      caja(2.1, 0.08, 0.7, 0, 1.25, -2.05, pintura);
+      caja(0.1, 0.6, 0.3, -0.6, 0.95, -2.0, negro); caja(0.1, 0.6, 0.3, 0.6, 0.95, -2.0, negro);
+      caja(1.95, 0.06, 0.5, 0, 0.22, 2.25, pintura);
+      { const casco = new THREE.Mesh(new THREE.SphereGeometry(0.3, 12, 10), new THREE.MeshStandardMaterial({ color: '#fafafa', metalness: 0.3, roughness: 0.3 }));
+        casco.position.set(0, 0.95, -0.15); casco.castShadow = true; cuerpo.add(casco); }
+      for (const [x, z] of [[-1.1, 1.5], [1.1, 1.5], [-1.1, -1.5], [1.1, -1.5]]) rueda(x, z, 0.46, 0.55);
+      alturaLuces = 0.45;
+      break;
+    case 'muscle':
+      largo = 4.8; ancho = 2.2;
+      caja(2.2, 0.65, 4.8, 0, 0.6, 0, pintura);
+      caja(1.75, 0.5, 2.0, 0, 1.17, -0.45, vidrio);
+      caja(1.7, 0.08, 1.8, 0, 1.44, -0.45, pintura);
+      for (const x of [-0.25, 0.25]) caja(0.22, 0.02, 4.82, x, 0.94, 0, new THREE.MeshStandardMaterial({ color: '#fafafa' }));
+      caja(2.0, 0.1, 0.4, 0, 1.02, -2.3, pintura);
+      for (const [x, z] of [[-1.05, 1.5], [1.05, 1.5], [-1.05, -1.5], [1.05, -1.5]]) rueda(x, z, 0.42, 0.4);
+      break;
+    case 'compacto':
+      largo = 3.7; ancho = 1.85;
+      caja(1.85, 0.7, 3.7, 0, 0.6, 0, pintura);
+      caja(1.72, 0.75, 2.3, 0, 1.3, -0.3, vidrio);
+      caja(1.66, 0.1, 2.1, 0, 1.7, -0.3, pintura);
+      for (const [x, z] of [[-0.88, 1.2], [0.88, 1.2], [-0.88, -1.2], [0.88, -1.2]]) rueda(x, z, 0.36, 0.3);
+      alturaLuces = 0.8;
+      break;
+    case 'todoterreno':
+      largo = 4.5; ancho = 2.1;
+      caja(2.1, 0.95, 4.5, 0, 0.95, 0, pintura);
+      caja(1.98, 0.75, 2.7, 0, 1.8, -0.4, vidrio);
+      caja(1.92, 0.1, 2.6, 0, 2.2, -0.4, pintura);
+      caja(1.6, 0.06, 0.06, 0, 2.4, 0.4, negro); caja(1.6, 0.06, 0.06, 0, 2.4, -1.2, negro);
+      { const repuesto = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.3, 14), negro);
+        repuesto.rotation.x = Math.PI / 2; repuesto.position.set(0, 1.2, -2.38); repuesto.castShadow = true; cuerpo.add(repuesto); }
+      for (const [x, z] of [[-1.0, 1.45], [1.0, 1.45], [-1.0, -1.45], [1.0, -1.45]]) rueda(x, z, 0.55, 0.45);
+      alturaLuces = 1.0;
+      break;
+    default: // deportivo
+      caja(2.0, 0.55, 4.4, 0, 0.55, 0, pintura);
+      caja(1.6, 0.5, 2.0, 0, 1.05, -0.35, vidrio);
+      caja(1.55, 0.08, 1.7, 0, 1.31, -0.35, pintura);
+      caja(1.8, 0.07, 0.35, 0, 0.98, -2.05, pintura);
+      for (const [x, z] of [[-0.95, 1.4], [0.95, 1.4], [-0.95, -1.4], [0.95, -1.4]]) rueda(x, z, 0.38, 0.35);
+  }
+  const atras = -largo / 2 - 0.01, adelante = largo / 2 + 0.01;
+  if (modelo === 'bolido') caja(0.35, 0.12, 0.05, 0, alturaLuces, atras, luzFreno);
+  else for (const x of [-ancho / 2 + 0.3, ancho / 2 - 0.3]) caja(0.45, 0.16, 0.05, x, alturaLuces, atras, luzFreno);
+  for (const x of [-ancho / 2 + 0.35, ancho / 2 - 0.35]) caja(0.35, 0.14, 0.05, x, alturaLuces, adelante, luzDelantera);
+  // llamas del nitro
+  const llama = new THREE.MeshBasicMaterial({ color: '#ffab00', transparent: true, opacity: 0.85 });
+  const llamas = [-0.35, 0.35].map((x) => {
+    const c = new THREE.Mesh(new THREE.ConeGeometry(0.18, 1.2, 8), llama);
+    c.rotation.x = -Math.PI / 2;
+    c.position.set(x, 0.45, atras - 0.6);
+    c.visible = false;
+    cuerpo.add(c);
+    return c;
+  });
+  auto.userData = { ruedas, luzFreno, llamas, cuerpo };
+  return auto;
+}
+
+// --- estado de la carrera ---
+const c = { estado: 'menu', pausa: false, corredores: [], jugadores: [], reloj: 0, cuenta: 0, llegados: 0, tFin: 0, camara: Guardado.leer('turbo_hd_camara', 0) };
+const entradas = [0, 1].map(() => ({ giro: 0, acel: false, freno: false, nitro: false, tactil: {} }));
+const teclas = new Set();
+let motores = [];
+const envolver = (s) => ((s % L) + L) % L;
+const indice = (s) => Math.floor(envolver(s) / ds) % N;
+const recorrido = (r) => r.vueltas * L + r.s;
+
+function nuevaCarrera() {
+  construirPista(opciones.pista);
+  for (const r of c.corredores) escena.remove(r.malla);
+  c.corredores = [];
+  c.jugadores = [];
+  // habilidad: qué tan rápido toman las curvas (1 = el límite de tu auto); punta: velocidad máxima
+  const habilidad = [0.74, 0.86, 0.95][opciones.dificultad];
+  const punta = [0.72, 0.84, 0.92][opciones.dificultad];
+  const total = RIVALES + opciones.jugadores;
+  const modelos = Object.keys(MODELOS);
+  for (let k = 0; k < total; k++) {
+    const fila = Math.floor(k / 2);
+    const r = { s: envolver(-(fila + 1) * 9), d: k % 2 ? 3.5 : -3.5, v: 0, vd: 0, vueltas: -1, vueltaActual: 1, termino: false, lugar: 0,
+      tiempo: 0, mejor: 0, inicioVuelta: 0, tNitro: 0, tChoque: 0, desvio: 0, tDesvio: 0 };
+    const humano = k >= RIVALES;
+    if (humano) {
+      const a = autos[k - RIVALES];
+      Object.assign(r, { humano: true, num: k - RIVALES, modelo: a.modelo, color: a.color, nitros: NITROS });
+      c.jugadores.push(r);
+    } else {
+      Object.assign(r, { humano: false, modelo: modelos[Math.floor(Math.random() * modelos.length)],
+        color: COLORES[Math.floor(Math.random() * COLORES.length)][1],
+        habilidad: habilidad + (RIVALES - k) / RIVALES * 0.05 + Math.random() * 0.02,
+        punta: (punta + (RIVALES - k) / RIVALES * 0.05 + Math.random() * 0.02) * VEL });
+    }
+    r.m = MODELOS[r.modelo];
+    r.malla = crearAuto(r.modelo, r.color);
+    escena.add(r.malla);
+    c.corredores.push(r);
+  }
+  // luces delanteras en los circuitos de noche, solo para los jugadores
+  for (const p of c.jugadores) {
+    if (!pista.noche) continue;
+    const foco = new THREE.SpotLight('#fff6d8', 60, 90, 0.5, 0.5, 1.2);
+    foco.position.set(0, 1, 1.5);
+    foco.target.position.set(0, 0, 25);
+    p.malla.add(foco, foco.target);
+  }
+  Object.assign(c, { reloj: 0, llegados: 0, tFin: 0, cuenta: 3, ultimoNumero: 4, estado: 'cuenta', pausa: false });
+  for (const e of entradas) { Object.assign(e, { giro: 0, acel: false, freno: false, nitro: false }); for (const k of Object.keys(e.tactil)) e.tactil[k] = false; }
+  document.getElementById('menu').hidden = true;
+  document.getElementById('resultados').hidden = true;
+  Sonido.iniciar();
+  Sonido.reanudar();
+  for (const m of motores) if (m) m.parar();
+  motores = c.jugadores.map(() => Sonido.crearMotor());
+  Sonido.musica('musica');
+  aplicarCalidad();
+  mostrarHud();
+  for (const r of c.corredores) colocarMalla(r, 0);
+  c.jugadores.forEach((p, k) => situarCamara(p, camaras[k], 1));
+}
+
+function posicion(r) {
+  if (r.termino) return r.lugar;
+  return 1 + c.corredores.filter((o) => o !== r && (o.termino || recorrido(o) > recorrido(r))).length;
+}
+
+function avanzar(r, dist) {
+  const antes = r.s;
+  r.s = envolver(r.s + dist);
+  if (r.s < antes - L / 2) r.vueltas++;
+  const vuelta = Math.floor(recorrido(r) / L) + 1;
+  if (!r.termino && vuelta > r.vueltaActual) {
+    if (r.humano) r.mejor = r.mejor ? Math.min(r.mejor, c.reloj - r.inicioVuelta) : c.reloj - r.inicioVuelta;
+    r.inicioVuelta = c.reloj;
+    r.vueltaActual = vuelta;
+    if (vuelta > VUELTAS) {
+      r.termino = true;
+      r.lugar = ++c.llegados;
+      r.tiempo = c.reloj;
+      if (r.humano) Sonido.tocar('meta');
+    } else if (r.humano) {
+      Sonido.tocar('vuelta');
+    }
+  }
+}
+
+function moverJugador(p, dt) {
+  const e = entradas[p.num], m = p.m, i = indice(p.s);
+  if (p.termino) { e.acel = true; e.freno = false; e.giro = Math.max(-1, Math.min(1, -p.d * 0.3)); }
+  if (e.nitro && p.nitros > 0 && p.tNitro <= 0 && c.estado === 'carrera' && !p.termino) {
+    p.nitros--;
+    p.tNitro = T_NITRO;
+    Sonido.tocar('nitro');
+  }
+  e.nitro = false;
+  p.tNitro = Math.max(0, p.tNitro - dt);
+  const tope = VEL * m.velMax * (p.tNitro > 0 ? EXTRA_NITRO : 1);
+  if (e.freno) p.v -= FRENO * dt;
+  else if (e.acel) p.v += ACEL * m.acel * (p.tNitro > 0 ? 1.8 : 1) * dt;
+  else p.v -= ROCE * dt;
+  p.v -= pend[i] * 9 * dt; // las subidas frenan un poco y las bajadas empujan
+  if (p.v > VEL * m.velMax && p.tNitro <= 0) p.v -= ROCE * 2 * dt;
+  const fuera = Math.abs(p.d) > ANCHO / 2 + 1.3;
+  if (fuera && p.v > 22 / m.fuera) p.v -= 40 * m.fuera * dt;
+  p.v = Math.max(0, Math.min(p.v, tope));
+  // dirección: el volante desplaza el auto a los lados; la curva lo empuja hacia afuera
+  const maxLateral = GIRO * Math.min(1, p.v / 25);
+  p.vd += (e.giro * maxLateral - p.vd) * Math.min(1, 8 * dt);
+  p.empuje = p.v * p.v * curv[i] * CENTRIFUGA / m.agarre;
+  p.d += (p.vd + p.empuje) * dt;
+  if (Math.abs(p.d) > LIMITE) { // la baranda
+    p.d = Math.sign(p.d) * LIMITE;
+    if (p.tChoque <= 0 && p.v > 25) { Sonido.tocar('choque'); vibrar(60); p.tChoque = 0.6; }
+    p.v *= p.tChoque > 0.5 ? 0.985 : 1;
+    p.vd = 0;
+  }
+  p.tChoque = Math.max(0, p.tChoque - dt);
+  chocarConAutos(p);
+  avanzar(p, p.v * dt);
+}
+
+function chocarConAutos(a) {
+  for (const o of c.corredores) {
+    if (o === a) continue;
+    const delante = envolver(o.s - a.s);
+    if (delante > 0 && delante < LARGO_AUTO && Math.abs(o.d - a.d) < ANCHO_AUTO && a.v > o.v) {
+      o.v = Math.min(o.v + (a.v - o.v) * 0.3, VEL * 1.1);
+      a.v = o.v * 0.92;
+      a.s = envolver(o.s - LARGO_AUTO);
+      a.d += a.d > o.d ? 0.4 : -0.4;
+      if (a.humano || o.humano) { Sonido.tocar('golpe'); vibrar(30); }
+    }
+  }
+}
+
+function moverRival(r, dt) {
+  // velocidad: la que permite la curva más cerrada de lo que viene (con distancia para frenar)
+  const mira = 30 + r.v * 1.4;
+  let limite = r.punta;
+  for (let a = 0; a < mira; a += ds * 3) {
+    const k = Math.abs(curv[indice(r.s + a)]);
+    if (k > 1e-4) limite = Math.min(limite, Math.sqrt(72 * r.habilidad / k) + a * 0.35);
+  }
+  // si va muy por delante de los jugadores afloja un poco, y si va muy atrás aprieta
+  const lider = Math.max(...c.jugadores.map(recorrido));
+  const ajuste = 1 + Math.max(-0.1, Math.min(0.1, (lider - recorrido(r)) / (L * 0.3)));
+  let objetivo = r.termino ? limite * 0.75 : limite * ajuste;
+  r.v += Math.max(-45 * dt, Math.min(22 * dt, objetivo - r.v));
+  // adelanta por el lado libre cuando alcanza a alguien más lento
+  r.tDesvio -= dt;
+  if (r.tDesvio <= 0) r.desvio = 0;
+  for (const o of c.corredores) {
+    if (o === r) continue;
+    const delante = envolver(o.s - r.s);
+    if (delante > 0 && delante < 16 && Math.abs(o.d - r.d) < 2.6 && o.v < r.v) {
+      r.desvio = o.d > 0 ? -4.5 : 4.5;
+      r.tDesvio = 1.5;
+      break;
+    }
+  }
+  const destino = Math.max(-ANCHO / 2 + 1.5, Math.min(ANCHO / 2 - 1.5, lineaIdeal[indice(r.s + 12)] + r.desvio));
+  const paso = Math.max(-7 * dt, Math.min(7 * dt, destino - r.d));
+  r.vd = paso / Math.max(dt, 1e-6);
+  r.d += paso;
+  r.empuje = 0;
+  chocarConAutos(r);
+  avanzar(r, r.v * dt);
+}
+
+function actualizar(dt) {
+  if (c.pausa || c.estado === 'menu') return;
+  if (c.estado === 'cuenta') {
+    c.cuenta -= dt;
+    const n = Math.ceil(c.cuenta);
+    if (n !== c.ultimoNumero) { c.ultimoNumero = n; Sonido.tocar(n > 0 ? 'cuenta' : 'ya'); }
+    if (c.cuenta <= 0) c.estado = 'carrera';
+  } else {
+    c.reloj += dt;
+    leerControles();
+    for (const p of c.jugadores) moverJugador(p, dt);
+    for (const r of c.corredores) if (!r.humano) moverRival(r, dt);
+    if (c.estado === 'carrera' && c.jugadores.every((p) => p.termino)) {
+      c.tFin += dt;
+      if (c.tFin > 2.5) terminarCarrera();
+    }
+  }
+  c.jugadores.forEach((p, k) => {
+    if (motores[k]) motores[k].ajustar(55 + (p.v / VEL) * 150, c.estado === 'resultados' ? 0 : opciones.jugadores > 1 ? 0.05 : 0.07);
+  });
+}
+
+function terminarCarrera() {
+  c.estado = 'resultados';
+  Sonido.pararMusica();
+  for (const m of motores) if (m) m.ajustar(40, 0);
+  const formato = (t) => `${Math.floor(t / 60)}:${(t % 60).toFixed(2).padStart(5, '0')}`;
+  const texto = c.jugadores.map((p) => `${opciones.jugadores > 1 ? `Jugador ${p.num + 1}` : 'Tú'}: <b>${p.lugar}º lugar</b> de ${c.corredores.length}`
+    + `<br>tiempo ${formato(p.tiempo)} · mejor vuelta ${formato(p.mejor || p.tiempo)}`).join('<br><br>');
+  const clave = `turbo_hd_record_${opciones.pista}`, record = Guardado.leer(clave, null);
+  const mejor = Math.min(...c.jugadores.map((p) => p.tiempo));
+  let extra;
+  if (record === null || mejor < record) { Guardado.escribir(clave, mejor); extra = '¡Nuevo récord del circuito!'; }
+  else extra = `Récord de ${pista.nombre}: ${formato(record)}`;
+  document.getElementById('texto-resultados').innerHTML = `${texto}<br><br>${extra}`;
+  document.getElementById('resultados').hidden = false;
+  mostrarHud();
+}
+
+// --- dibujo ---
+const vTmp = new THREE.Vector3();
+function puntoEn(s, d, salida = new THREE.Vector3()) {
+  const sc = envolver(s), i = Math.floor(sc / ds) % N, f = sc / ds - Math.floor(sc / ds), j = (i + 1) % N;
+  salida.lerpVectors(pos[i], pos[j], f);
+  vTmp.lerpVectors(der[i], der[j], f).normalize();
+  return salida.addScaledVector(vTmp, d);
+}
+const rumboEn = (s) => { const t = tang[indice(s)]; return Math.atan2(t.x, t.z); };
+
+function colocarMalla(r, dt) {
+  const mll = r.malla;
+  puntoEn(r.s, r.d, mll.position);
+  const i = indice(r.s);
+  const derrape = Math.atan2(r.vd + (r.empuje || 0), Math.max(r.v, 5));
+  mll.rotation.set(-Math.atan(pend[i]), rumboEn(r.s) - derrape * 0.8, 0, 'YXZ');
+  const u = mll.userData;
+  u.cuerpo.rotation.z = THREE.MathUtils.clamp(-(r.empuje || 0) * 0.012 + (r.vd || 0) * 0.004, -0.12, 0.12); // se inclina en las curvas
+  for (const w of u.ruedas) w.children.forEach((pieza) => { pieza.rotation.x += r.v * dt * 2.4; });
+  const frenando = r.humano ? entradas[r.num].freno : r.v > 5 && r.ultimaV > r.v + 0.2;
+  r.ultimaV = r.v;
+  u.luzFreno.emissiveIntensity = frenando ? 3 : 0.6;
+  for (const l of u.llamas) { l.visible = r.tNitro > 0; l.scale.set(1, 0.7 + Math.random() * 0.6, 1); }
+}
+
+function situarCamara(p, cam, dt) {
+  const t = tang[indice(p.s + 6)];
+  const lejos = [[8, 3.2], [13, 5.2], [0.6, 1.25]][c.camara]; // cámara cerca, lejos y desde el capó
+  // la cámara va pegada al auto a distancia fija; solo su dirección se suaviza, para que no se quede atrás a toda velocidad
+  const objetivo = puntoEn(p.s, p.d, new THREE.Vector3());
+  const u = cam.userData;
+  if (!u.dir || dt >= 1) u.dir = t.clone();
+  u.dir.lerp(t, c.camara === 2 ? 1 : 1 - Math.exp(-6 * dt)).normalize();
+  if (c.camara === 2) cam.position.copy(objetivo).addScaledVector(u.dir, 1.2).add(new THREE.Vector3(0, lejos[1], 0)); // desde el capó
+  else cam.position.copy(objetivo).addScaledVector(u.dir, -lejos[0]).add(new THREE.Vector3(0, lejos[1], 0));
+  cam.up.set(0, 1, 0);
+  cam.lookAt(objetivo.clone().addScaledVector(u.dir, c.camara === 2 ? 30 : 7).add(new THREE.Vector3(0, 1.2, 0)));
+  const fov = 60 + 12 * Math.min(1.3, p.v / VEL) + (p.tNitro > 0 ? 7 : 0); // se abre con la velocidad
+  cam.fov += (fov - cam.fov) * Math.min(1, 4 * dt);
+  cam.updateProjectionMatrix();
+}
+
+function dibujar(dt) {
+  const w = zona.clientWidth, h = zona.clientHeight;
+  if (!c.jugadores.length) { // menú: el circuito elegido de fondo, con una cámara que gira
+    if (!grupoPista) construirPista(opciones.pista);
+    const cam = camaras[0], t = performance.now() / 9000;
+    const p = pos[0];
+    cam.position.set(p.x + Math.cos(t) * 60, p.y + 25, p.z + Math.sin(t) * 60);
+    cam.lookAt(p.x, p.y, p.z);
+    cam.aspect = w / Math.max(1, h);
+    cam.fov = 60;
+    cam.updateProjectionMatrix();
+    renderer.setScissorTest(false);
+    renderer.setViewport(0, 0, w, h);
+    renderer.render(escena, cam);
+    return;
+  }
+  for (const r of c.corredores) colocarMalla(r, dt);
+  // la luz del sol (y su sombra) acompaña al jugador 1
+  const p1 = c.jugadores[0].malla.position;
+  sol.position.set(p1.x - 60, p1.y + 120, p1.z + 40);
+  sol.target.position.copy(p1);
+  const dos = c.jugadores.length > 1;
+  renderer.setScissorTest(dos);
+  c.jugadores.forEach((p, k) => {
+    const cam = camaras[k];
+    situarCamara(p, cam, dt);
+    const alto = dos ? h / 2 : h;
+    cam.aspect = w / Math.max(1, alto);
+    // con dos jugadores: el 1 abajo y el 2 arriba (girado en pantallas táctiles, para quien juega enfrente)
+    if (dos && k === 1 && tactil) cam.rotateZ(Math.PI);
+    cam.updateProjectionMatrix();
+    const y = dos && k === 0 ? 0 : dos ? h / 2 : 0;
+    renderer.setViewport(0, y, w, alto);
+    renderer.setScissor(0, y, w, alto);
+    renderer.render(escena, cam);
+  });
+  actualizarHud();
+}
+
+// --- marcador ---
+const huds = [0, 1].map((k) => {
+  const raiz = document.getElementById(`hud-${k}`);
+  const q = (cl) => raiz.querySelector('.' + cl);
+  return { raiz, pos: q('pos'), vuelta: q('vuelta'), tiempo: q('tiempo'), vel: q('vel'), nitro: q('nitro'), aviso: q('aviso'), mapa: q('mapa').getContext('2d'), cache: {} };
+});
+const poner = (hud, campo, html) => { if (hud.cache[campo] !== html) { hud.cache[campo] = html; hud[campo].innerHTML = html; } };
+function mostrarHud() {
+  const enCarrera = c.estado === 'cuenta' || c.estado === 'carrera';
+  const dos = opciones.jugadores > 1;
+  huds.forEach((hud, k) => {
+    hud.raiz.hidden = !(enCarrera || c.estado === 'resultados') || k >= c.jugadores.length;
+    hud.raiz.style.top = dos && k === 0 ? '50%' : '0';
+    hud.raiz.style.bottom = dos && k === 1 ? '50%' : '0';
+    hud.raiz.classList.toggle('arriba', dos && k === 1 && tactil);
+  });
+  document.getElementById('mandos-0').hidden = !enCarrera;
+  document.getElementById('mandos-1').hidden = !enCarrera || !dos;
+  document.getElementById('mandos-0').style.top = dos ? '50%' : '';
+  document.getElementById('mandos-1').style.bottom = dos ? '50%' : '';
+}
+function actualizarHud() {
+  c.jugadores.forEach((p, k) => {
+    const hud = huds[k];
+    poner(hud, 'pos', `${posicion(p)}º<small>/${c.corredores.length}</small>`);
+    poner(hud, 'vuelta', `VUELTA ${Math.min(VUELTAS, Math.max(1, p.vueltaActual))}/${VUELTAS}`);
+    const t = p.termino ? p.tiempo : c.reloj;
+    poner(hud, 'tiempo', `${Math.floor(t / 60)}:${(t % 60).toFixed(1).padStart(4, '0')}`);
+    poner(hud, 'vel', `${Math.round(p.v * KMH)}<small> km/h</small>`);
+    poner(hud, 'nitro', `NITRO ${'■'.repeat(p.nitros)}${'□'.repeat(NITROS - p.nitros)}`);
+    let aviso = '';
+    if (c.estado === 'cuenta') aviso = Math.ceil(c.cuenta) > 0 ? String(Math.ceil(c.cuenta)) : '¡YA!';
+    else if (c.reloj < 1) aviso = '¡YA!';
+    else if (p.termino) aviso = `<span class="chico">¡META! ${p.lugar}º LUGAR</span>`;
+    else if (c.pausa) aviso = 'PAUSA';
+    poner(hud, 'aviso', aviso);
+    // minimapa
+    const g = hud.mapa, e = mapaPuntos.escala;
+    g.clearRect(0, 0, 130, 130);
+    g.strokeStyle = 'rgba(255,255,255,0.7)';
+    g.lineWidth = 3;
+    g.beginPath();
+    mapaPuntos.forEach(([x, z], i) => { const px = 10 + x * 110, py = 10 + z * 110; if (i) g.lineTo(px, py); else g.moveTo(px, py); });
+    g.closePath();
+    g.stroke();
+    for (const r of c.corredores) {
+      const pt = puntoEn(r.s, r.d, vTmp.clone());
+      g.fillStyle = r === p ? '#ffeb3b' : r.humano ? '#4fc3f7' : '#ef5350';
+      g.beginPath();
+      g.arc(10 + (pt.x - e.minX) / e.lado * 110, 10 + (pt.z - e.minZ) / e.lado * 110, r === p ? 5 : 3, 0, Math.PI * 2);
+      g.fill();
+    }
+  });
+}
+
+// --- controles ---
+let mandos = [];
+function leerMandos() {
+  mandos = Mandos.leer();
+  for (const m of mandos) {
+    if (c.estado === 'menu' || c.estado === 'resultados') { if (m.recien.a || m.recien.start) nuevaCarrera(); }
+    else {
+      if (m.recien.start) alternarPausa();
+      if (m.recien.y) cambiarCamara();
+    }
+  }
+}
+function leerControles() {
+  const dos = opciones.jugadores > 1;
+  const t = (...ks) => ks.some((k) => teclas.has(k));
+  const asignar = (e, izq, der, acel, freno, m) => {
+    const tc = e.tactil;
+    e.giro = (t(...der) || tc.der ? 1 : 0) - (t(...izq) || tc.izq ? 1 : 0);
+    e.acel = t(...acel) || !!tc.acel;
+    e.freno = t(...freno) || !!tc.freno;
+    if (m) { // el mando gira con suavidad según cuánto se empuja la palanca
+      if (!e.giro) e.giro = m.ejeX || (m.ahora.der ? 1 : 0) - (m.ahora.izq ? 1 : 0);
+      e.acel = e.acel || m.ahora.a || m.ahora.rt;
+      e.freno = e.freno || m.ahora.b || m.ahora.lt;
+      if (m.recien.x || m.recien.lb || m.recien.rb) e.nitro = true;
+    }
+  };
+  asignar(entradas[0], ['a', ...(dos ? [] : ['arrowleft'])], ['d', ...(dos ? [] : ['arrowright'])], ['w', ...(dos ? [] : ['arrowup'])],
+    ['s', ...(dos ? [] : ['arrowdown'])], mandos[0]);
+  if (dos) asignar(entradas[1], ['arrowleft'], ['arrowright'], ['arrowup'], ['arrowdown'], mandos[1]);
+}
+[0, 1].forEach((num) => {
+  for (const b of document.querySelectorAll(`#mandos-${num} button`)) {
+    const accion = b.dataset.accion;
+    botonMantener(b, () => { if (accion === 'nitro') entradas[num].nitro = true; else entradas[num].tactil[accion] = true; },
+      () => { entradas[num].tactil[accion] = false; });
+  }
+});
+addEventListener('keydown', (ev) => {
+  const k = ev.key.toLowerCase();
+  if (['arrowleft', 'arrowright', 'arrowup', 'arrowdown', ' '].includes(k)) ev.preventDefault();
+  teclas.add(k);
+  if (ev.repeat) return;
+  if (k === 'm') alternarSonido();
+  else if (k === 'p') alternarPausa();
+  else if (k === 'c') cambiarCamara();
+  else if (k === 'r' && c.estado !== 'menu') nuevaCarrera();
+  else if (k === ' ') entradas[0].nitro = true;
+  else if (k === 'enter') { if (c.estado === 'menu') nuevaCarrera(); else entradas[opciones.jugadores > 1 ? 1 : 0].nitro = true; }
+});
+addEventListener('keyup', (ev) => teclas.delete(ev.key.toLowerCase()));
+addEventListener('blur', () => teclas.clear());
+
+function alternarPausa() {
+  if (c.estado !== 'cuenta' && c.estado !== 'carrera') return;
+  c.pausa = !c.pausa;
+  if (c.pausa) Sonido.pausar(); else Sonido.reanudar();
+}
+function alternarSonido() {
+  Sonido.iniciar();
+  Sonido.alternar();
+  document.getElementById('b-sonido').textContent = Sonido.activo ? '🔊' : '🔇';
+}
+function cambiarCamara() {
+  c.camara = (c.camara + 1) % 3;
+  Guardado.escribir('turbo_hd_camara', c.camara);
+}
+function irAlMenu() {
+  c.estado = 'menu';
+  c.pausa = false;
+  Sonido.pararMusica();
+  Sonido.reanudar();
+  for (const m of motores) if (m) m.parar();
+  motores = [];
+  for (const r of c.corredores) escena.remove(r.malla);
+  c.corredores = [];
+  c.jugadores = [];
+  document.getElementById('menu').hidden = false;
+  document.getElementById('resultados').hidden = true;
+  mostrarHud();
+}
+
+// opciones del menú
+let editando = 0;
+for (const grupo of document.querySelectorAll('.opciones[data-opcion]')) {
+  const nombre = grupo.dataset.opcion;
+  const marcar = () => grupo.querySelectorAll('button').forEach((b) => b.classList.toggle('activo', Number(b.dataset.valor) === opciones[nombre]));
+  grupo.addEventListener('click', (ev) => {
+    const b = ev.target.closest('button');
+    if (!b) return;
+    opciones[nombre] = Number(b.dataset.valor);
+    Guardado.escribir(nombre === 'calidad' ? 'turbo_hd_calidad' : `turbo_${nombre}`, opciones[nombre]);
+    if (nombre === 'pista') construirPista(opciones.pista);
+    if (nombre === 'calidad') aplicarCalidad();
+    if (nombre === 'jugadores') { editando = Math.min(editando, opciones.jugadores - 1); actualizarGaraje(); }
+    marcar();
+  });
+  marcar();
+}
+
+// garaje: el auto elegido gira en 3D
+const vista = new THREE.WebGLRenderer({ canvas: document.getElementById('vista-auto'), antialias: true, alpha: true });
+vista.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+const escenaVista = new THREE.Scene();
+escenaVista.add(new THREE.HemisphereLight('#ffffff', '#445566', 1.6));
+const luzVista = new THREE.DirectionalLight('#ffffff', 2);
+luzVista.position.set(4, 6, 5);
+escenaVista.add(luzVista);
+const piso = new THREE.Mesh(new THREE.CircleGeometry(4, 32), new THREE.MeshStandardMaterial({ color: '#2a3550', roughness: 0.9 }));
+piso.rotation.x = -Math.PI / 2;
+escenaVista.add(piso);
+const camVista = new THREE.PerspectiveCamera(32, 380 / 150, 0.1, 100);
+camVista.position.set(7, 3.4, 7);
+camVista.lookAt(0, 0.7, 0);
+let autoVista = null;
+const modelosHtml = document.getElementById('modelos'), coloresHtml = document.getElementById('colores');
+for (const [id, m] of Object.entries(MODELOS)) {
+  const b = document.createElement('button');
+  b.textContent = m.nombre;
+  b.dataset.modelo = id;
+  modelosHtml.appendChild(b);
+}
+for (const [nombre, hexa] of COLORES) {
+  const b = document.createElement('button');
+  b.style.background = hexa;
+  b.title = nombre;
+  b.setAttribute('aria-label', nombre);
+  b.dataset.color = hexa;
+  coloresHtml.appendChild(b);
+}
+function barra(valor, propiedad, invertir = false) {
+  const valores = Object.values(MODELOS).map((m) => m[propiedad]);
+  let t = (valor - Math.min(...valores)) / (Math.max(...valores) - Math.min(...valores));
+  if (invertir) t = 1 - t;
+  const n = 1 + Math.round(t * 4);
+  return '■'.repeat(n) + '□'.repeat(5 - n);
+}
+function actualizarGaraje() {
+  const auto = autos[editando], m = MODELOS[auto.modelo];
+  document.getElementById('pestanas-auto').hidden = opciones.jugadores < 2;
+  document.querySelectorAll('#pestanas-auto button').forEach((b) => b.classList.toggle('activo', Number(b.dataset.j) === editando));
+  modelosHtml.querySelectorAll('button').forEach((b) => b.classList.toggle('activo', b.dataset.modelo === auto.modelo));
+  coloresHtml.querySelectorAll('button').forEach((b) => b.classList.toggle('activo', b.dataset.color === auto.color));
+  document.getElementById('ficha').innerHTML = `Velocidad   <b>${barra(m.velMax, 'velMax')}</b> ${Math.round(m.velMax * 260)} km/h\n`
+    + `Aceleración <b>${barra(m.acel, 'acel')}</b>\nAgarre      <b>${barra(m.agarre, 'agarre')}</b>\n`
+    + `Todoterreno <b>${barra(m.fuera, 'fuera', true)}</b>\n${m.nota}`;
+  if (autoVista) escenaVista.remove(autoVista);
+  autoVista = crearAuto(auto.modelo, auto.color);
+  escenaVista.add(autoVista);
+}
+function cambiarAuto(cambio) {
+  Object.assign(autos[editando], cambio);
+  Guardado.escribir('turbo_autos', autos);
+  actualizarGaraje();
+}
+modelosHtml.addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (b) cambiarAuto({ modelo: b.dataset.modelo }); });
+coloresHtml.addEventListener('click', (ev) => { const b = ev.target.closest('button'); if (b) cambiarAuto({ color: b.dataset.color }); });
+document.getElementById('pestanas-auto').addEventListener('click', (ev) => {
+  const b = ev.target.closest('button');
+  if (b) { editando = Number(b.dataset.j); actualizarGaraje(); }
+});
+function dibujarVista() {
+  const lienzoVista = vista.domElement;
+  if (lienzoVista.clientWidth && (lienzoVista.width !== lienzoVista.clientWidth || lienzoVista.height !== lienzoVista.clientHeight)) {
+    vista.setSize(lienzoVista.clientWidth, lienzoVista.clientHeight, false);
+    camVista.aspect = lienzoVista.clientWidth / lienzoVista.clientHeight;
+    camVista.updateProjectionMatrix();
+  }
+  if (autoVista) autoVista.rotation.y += 0.01;
+  vista.render(escenaVista, camVista);
+}
+
+document.getElementById('b-arrancar').addEventListener('click', nuevaCarrera);
+document.getElementById('b-otra').addEventListener('click', nuevaCarrera);
+document.getElementById('b-volver').addEventListener('click', irAlMenu);
+document.getElementById('b-menu').addEventListener('click', irAlMenu);
+document.getElementById('b-camara').addEventListener('click', cambiarCamara);
+document.getElementById('b-pausa').addEventListener('click', () => { Sonido.iniciar(); alternarPausa(); });
+document.getElementById('b-sonido').addEventListener('click', alternarSonido);
+document.getElementById('b-sonido').textContent = Sonido.activo ? '🔊' : '🔇';
+lienzo.addEventListener('pointerdown', () => { if (c.pausa) alternarPausa(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && !c.pausa) alternarPausa(); });
+
+actualizarGaraje();
+aplicarCalidad();
+construirPista(opciones.pista);
+mostrarHud();
+bucle((dt) => {
+  leerMandos();
+  actualizar(Math.min(dt, 1 / 20));
+  dibujar(Math.min(dt, 1 / 20));
+  if (c.estado === 'menu') dibujarVista();
+});
+window.juego = { c, entradas, opciones, nuevaCarrera, actualizar, dibujar, posicion, recorrido, get L() { return L; }, curv: () => curv, indice, Sonido };
+</script>
+</body>
+</html>
