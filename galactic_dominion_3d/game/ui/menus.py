@@ -42,6 +42,7 @@ class Screen:
     def __init__(self, app, name: str):
         self.app = app
         self.root = app.aspect2d.attachNewNode(name)
+        self.root.setScale(app.ui_factor())
         self.widgets: list = []
         self.events: list[str] = []
 
@@ -529,14 +530,19 @@ class SettingsScreen(Screen):
         self.button(f"Bloom y HDR: {'Sí' if bloom else 'No'}", (-1.15, 0.35), self._toggle_bloom, 0.62)
         self.button(f"Pantalla completa: {'Sí' if self.s['fullscreen'] else 'No'}", (-1.15, 0.25),
                     self._toggle, 0.62, extra=["fullscreen"])
-        self.button(f"FPS objetivo: {self.s['fps_target']}", (-1.15, 0.15), self._cycle_fps, 0.62)
-        self.button(f"Mostrar FPS (F3): {'Sí' if self.s['show_fps'] else 'No'}", (-1.15, 0.05), self._toggle, 0.62,
+        res = "pantalla completa" if self.s["fullscreen"] else f"{self.s['width']}×{self.s['height']}"
+        self.button(f"Resolución: {res}", (-1.15, 0.15), self._cycle_resolution, 0.62, enabled=not self.s["fullscreen"])
+        self.button(f"FPS objetivo: {self.s['fps_target']}", (-1.15, 0.05), self._cycle_fps, 0.62)
+        self.button(f"Mostrar FPS (F3): {'Sí' if self.s['show_fps'] else 'No'}", (-1.15, -0.05), self._toggle, 0.62,
                     extra=["show_fps"])
-        self.text("Campo de visión", (-1.46, -0.07), 0.035, DIM)
-        self.fov_label = self.text(f"{self.s['fov']:.0f}°", (-0.85, -0.07), 0.035, TEXT)
-        self.slider((-1.15, -0.13), self.s["fov"], self._fov, 0.6, (60, 95))
-        self.text("El suavizado (MSAA) y la calidad de texturas se aplican al reiniciar o en la siguiente misión.",
-                  (-1.5, -0.25), 0.027, DIM, wordwrap=26)
+        self.text("Campo de visión", (-1.46, -0.15), 0.033, DIM)
+        self.fov_label = self.text(f"{self.s['fov']:.0f}°", (-0.85, -0.15), 0.033, TEXT)
+        self.slider((-1.15, -0.2), self.s["fov"], self._fov, 0.6, (60, 95))
+        self.text("Tamaño de la interfaz", (-1.46, -0.29), 0.033, DIM)
+        self.ui_label = self.text(f"{self.s['ui_scale'] * 100:.0f}%", (-0.85, -0.29), 0.033, TEXT)
+        self.slider((-1.15, -0.34), self.s["ui_scale"], self._ui_scale, 0.6, (0.7, 1.5))
+        self.text("La ventana se puede redimensionar arrastrando el borde. El suavizado (MSAA) se aplica al "
+                  "reiniciar.", (-1.5, -0.44), 0.026, DIM, wordwrap=26)
 
         self.text("Audio", (-0.38, 0.55), 0.05, GOLD)
         self.vol_labels = {}
@@ -592,6 +598,21 @@ class SettingsScreen(Screen):
         self.s["fps_target"] = self.FPS[(i + 1) % len(self.FPS)]
         self._apply(True)
 
+    RESOLUTIONS = [(1280, 720), (1366, 768), (1600, 900), (1920, 1080), (2560, 1080), (2560, 1440), (3440, 1440),
+                   (3840, 2160)]
+
+    def _cycle_resolution(self):
+        max_w, max_h = self.app.pipe.getDisplayWidth(), self.app.pipe.getDisplayHeight()
+        options = [r for r in self.RESOLUTIONS if r[0] <= max_w and r[1] <= max_h] or [self.RESOLUTIONS[0]]
+        current = (self.s["width"], self.s["height"])
+        nxt = options[(options.index(current) + 1) % len(options)] if current in options else options[0]
+        self.s["width"], self.s["height"] = nxt
+        self._apply(True)
+
+    def _ui_scale(self, value):
+        self.s["ui_scale"] = round(value, 2)
+        self.ui_label.setText(f"{self.s['ui_scale'] * 100:.0f}%")
+
     def _fov(self, value):
         self.s["fov"] = float(round(value))
         self.fov_label.setText(f"{self.s['fov']:.0f}°")
@@ -630,6 +651,7 @@ class SettingsScreen(Screen):
 
     def _back(self):
         self.app.buttonThrowers[0].node().setButtonDownEvent("")
+        self.app.layout_key = None  # vuelve a calcular la escala con el nuevo tamaño de interfaz
         self.app.apply_settings()
         self.s.save()
         self.back()

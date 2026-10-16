@@ -40,6 +40,7 @@ def configure_window(settings: Settings) -> None:
         f"win-size {settings['width']} {settings['height']}",
         f"fullscreen {'#t' if settings['fullscreen'] else '#f'}",
         "win-origin -2 -2",
+        "win-fixed-size #f",
         f"sync-video {'#t' if settings['vsync'] else '#f'}",
         "textures-power-2 none",
         "show-frame-rate-meter #f",
@@ -119,6 +120,7 @@ class GameApp(ShowBase):
         self.backdrop: MenuBackdrop | None = None
         self.backdrop_key = None
         self.jump_fade = 0.0
+        self.layout_key = None
         self.apply_settings()
         self.exitFunc = self._on_exit
         self.taskMgr.add(self._update, "game-update", sort=10)
@@ -146,11 +148,36 @@ class GameApp(ShowBase):
             props.setSize(self.pipe.getDisplayWidth(), self.pipe.getDisplayHeight())
         else:
             props.setSize(int(s["width"]), int(s["height"]))
-        if self.win and self.win.getProperties().getFullscreen() != bool(s["fullscreen"]):
-            self.win.requestProperties(props)
+        if self.win:
+            # solo se fuerza el tamaño si cambió en el menú: si el jugador arrastró el borde, se respeta
+            wanted_size = (int(s["width"]), int(s["height"]))
+            size_changed = not s["fullscreen"] and wanted_size != getattr(self, "applied_size", wanted_size)
+            if self.win.getProperties().getFullscreen() != bool(s["fullscreen"]) or size_changed:
+                self.win.requestProperties(props)
+            self.applied_size = wanted_size
         self.controller.reload_bindings()
         self.controller.refresh_gamepad()
         self.camLens.setFov(float(s["fov"]))
+
+    # --- adaptación a la pantalla --------------------------------------------
+    def ui_factor(self) -> float:
+        """Escala de la interfaz: los menús se diseñaron para 16:9; en pantallas más estrechas
+        (4:3, 16:10, teléfonos en vertical) se reducen para que nada quede fuera."""
+        aspect = self.getAspectRatio() if self.win else 16 / 9
+        return float(self.settings["ui_scale"]) * min(1.0, aspect / (16 / 9))
+
+    def _check_layout(self) -> None:
+        if not self.win:
+            return
+        key = (self.win.getXSize(), self.win.getYSize(), float(self.settings["ui_scale"]))
+        if key == self.layout_key:
+            return
+        self.layout_key = key
+        factor = self.ui_factor()
+        if self.screen is not None:
+            self.screen.root.setScale(factor)
+        if self.session is not None and getattr(self.session, "hud", None) is not None:
+            self.session.hud.set_scale(factor)
 
     # --- pantallas ----------------------------------------------------------
     def _set_screen(self, screen) -> None:
@@ -336,6 +363,7 @@ class GameApp(ShowBase):
     # --- bucle --------------------------------------------------------------
     def _update(self, task):
         dt = ClockObject.getGlobalClock().getDt()
+        self._check_layout()
         try:
             if self.loader_task is not None:
                 self._step_loading()
@@ -370,6 +398,8 @@ class GameApp(ShowBase):
 
     def _on_exit(self) -> None:
         self.autosave()
+        if self.win and not self.settings["fullscreen"]:  # recuerda el tamaño elegido arrastrando el borde
+            self.settings["width"], self.settings["height"] = self.win.getXSize(), self.win.getYSize()
         try:
             self.settings.save()
         except OSError:

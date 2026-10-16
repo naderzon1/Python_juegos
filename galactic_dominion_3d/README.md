@@ -12,6 +12,19 @@ galaxias más peligrosas. El progreso se guarda automáticamente.
 - Todo el contenido audiovisual (modelos, texturas, sonido y música) se genera con el código del propio
   proyecto. No hay recursos de terceros (ver `assets/LICENSES.md`).
 
+**Dos versiones:**
+
+| Versión | Dispositivos | Cómo se abre |
+|---|---|---|
+| Escritorio (esta carpeta, Python + Panda3D) | Windows, macOS y Linux, en cualquier monitor: portátil, 1080p, 1440p, 4K, 16:10, 4:3 y ultrapanorámico | `jugar.bat` o `python main.py` |
+| Web (`docs/galactic.html` del repositorio) | Teléfonos, tablets y computadores, en vertical u horizontal | En el navegador, desde la portada de los juegos web. Se puede instalar como app y funciona sin conexión |
+
+La versión web es una adaptación más ligera hecha con three.js. Mantiene las 5 galaxias, las 19 misiones, los
+5 jefes con generadores y fases, la evolución Mk I–V, el taller y el guardado en el navegador. Se juega con
+controles táctiles (palanca y botones), con ratón y teclado o con mando, y ofrece gráficos «Altos» (bloom) o
+«Rápidos». Para ser ligera tiene menos contenido: 6 mejoras en lugar de 11, 3 armas en lugar de 8, una sola
+nave, sin inventario de componentes, y la vida de los jefes ajustada a ese arsenal menor.
+
 ---
 
 ## 1. Instalación
@@ -69,6 +82,12 @@ Los registros se guardan en `saves/game.log`.
 | Estadísticas de rendimiento (FPS) | F3 | — |
 
 Las teclas se pueden reasignar en **Configuración → Asignación de teclas** (o en `config/controls.json`).
+
+**Pantallas.** La interfaz se adapta sola a la proporción de la pantalla: en monitores 4:3 o 16:10 los menús y
+el HUD se reducen para que todo quepa, y en ultrapanorámicos se mantienen centrados. La ventana se puede
+redimensionar arrastrando el borde, y el juego recuerda el tamaño. En **Configuración → Gráficos** se elige la
+resolución (de 1280×720 a 3840×2160, según tu monitor), la pantalla completa y el **tamaño de la interfaz**
+(70%–150%, útil en portátiles pequeños o en televisores).
 La sensibilidad del ratón y la inversión del eje Y también son ajustables.
 
 Para lanzar misiles guiados, fija un objetivo (Tab) y mantenlo dentro de la mira hasta que el anillo rojo se

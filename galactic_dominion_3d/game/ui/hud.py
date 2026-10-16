@@ -71,6 +71,14 @@ class HUD:
         self.crit_marker = 0.0
         self.show_stats = bool(session.app.settings["show_fps"])
         self.stats_timer = 0.0
+        self.set_scale(session.app.ui_factor())
+
+    def set_scale(self, factor: float) -> None:
+        """Escala los paneles anclados a las esquinas (pantallas estrechas o tamaño de interfaz)."""
+        self.scale = factor
+        for node in self.anchor.values():
+            node.setScale(factor)
+        self.crosshair.setScale(factor)
 
     # --- construcción -------------------------------------------------------
     def _build(self) -> None:

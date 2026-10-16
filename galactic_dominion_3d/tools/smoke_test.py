@@ -8,10 +8,12 @@ menús. Las partidas se guardan en una carpeta temporal, nunca en ``saves/``.
     python tools/smoke_test.py --shots carpeta       # guarda capturas de pantalla
     python tools/smoke_test.py --plan orion_boss     # solo las misiones indicadas
     python tools/smoke_test.py --plan orion_patrol --level 16   # con la nave en etapa Mk V
+    python tools/smoke_test.py --plan orion_tutorial --size 1024x768 --shots c   # otra pantalla
 """
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import math
 import os
@@ -129,9 +131,14 @@ def main() -> int:
     parser.add_argument("--seconds", type=float, default=150)
     parser.add_argument("--plan", default="", help="misiones separadas por comas, p. ej. orion_boss,void_boss")
     parser.add_argument("--level", type=int, default=0, help="nivel inicial del piloto (prueba la evolución Mk)")
+    parser.add_argument("--size", default="", help="resolución de la ventana, p. ej. 1024x768 o 2560x1080")
     args = parser.parse_args()
     shots = Path(args.shots) if args.shots else None
     log_file = Path(os.environ["GD_SAVES_DIR"]) / "game.log"
+    if args.size:
+        w, h = (int(v) for v in args.size.lower().split("x"))
+        (Path(os.environ["GD_SAVES_DIR"]) / "settings.json").write_text(
+            json.dumps({"width": w, "height": h}), encoding="utf-8")
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s",
                         handlers=[logging.StreamHandler(sys.stdout), logging.FileHandler(log_file, encoding="utf-8")])
     app = GameApp()

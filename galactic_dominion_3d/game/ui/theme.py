@@ -45,7 +45,7 @@ def load_font(loader):
         if Path(path).exists():
             font = loader.loadFont(Filename.fromOsSpecific(path).getFullpath())
             if font is not None and font.isValid():
-                font.setPixelsPerUnit(72)
+                font.setPixelsPerUnit(96)  # nítida también en pantallas 1440p y 4K
                 _font = font
                 return font
     return None  # sin fuente del sistema: DirectGUI usa la fuente interna de Panda3D

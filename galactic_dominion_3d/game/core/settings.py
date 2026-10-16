@@ -28,6 +28,7 @@ class Settings:
             "vsync": bool(g.get("vsync", False)),
             "show_fps": bool(g.get("show_fps", False)),
             "fov": float(g.get("fov", 72)),
+            "ui_scale": 1.0,  # tamaño de la interfaz (0.7 = pantallas pequeñas, 1.5 = televisores)
             "bloom": None,  # None = lo que diga el preajuste
             "mouse_sensitivity": float(c["mouse_sensitivity"]),
             "invert_y": bool(c["invert_y"]),
@@ -85,6 +86,9 @@ class Settings:
             self.data[key] = min(1.0, max(0.0, self.data[key]))
         self.data["mouse_sensitivity"] = min(4.0, max(0.1, self.data["mouse_sensitivity"]))
         self.data["fps_target"] = min(240, max(30, self.data["fps_target"]))
+        self.data["ui_scale"] = min(1.5, max(0.7, self.data["ui_scale"]))
+        self.data["width"] = min(7680, max(800, self.data["width"]))
+        self.data["height"] = min(4320, max(600, self.data["height"]))
 
     def save(self) -> None:
         atomic_write_json(self.path, self.data, keep_backup=False)
