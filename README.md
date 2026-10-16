@@ -26,7 +26,9 @@ Los juegos 3D usan [three.js](https://threejs.org), que se carga desde internet 
 **Emuladores de Nintendo 64 y Super Nintendo** (`docs/emulador.html?s=n64` y `?s=snes`): abren juegos que
 elijas desde tu aparato (.z64, .n64, .v64, .sfc, .smc o dentro de un .zip). Usan [EmulatorJS](https://emulatorjs.org)
 (código abierto, GPL-3.0) con los núcleos mupen64plus y snes9x, cargados desde su servidor.
-No incluyen juegos: usa copias de tus cartuchos o homebrew libre.
+El de N64 trae dos juegos caseros libres para abrir con un toque (`docs/juegos/`: Sblobber 64, licencia MIT,
+y Kumi-Daiko Beatoff 64, dominio público; créditos en `docs/juegos/LICENCIAS.txt`). Para lo demás, usa copias
+de tus cartuchos u otros juegos caseros libres.
 
 Publicados en: https://naderzon1.github.io/Python_juegos/
 

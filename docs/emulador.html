@@ -53,6 +53,22 @@
   .elegir.arrastrando { outline: 3px dashed var(--acento); outline-offset: 6px; border-radius: 16px; }
   /* se oculta con el atributo hidden: EmulatorJS reemplaza el atributo style del contenedor */
   #juego { width: 100%; height: 100%; }
+  #incluidos { margin: 4px 0 14px; padding: 12px; border-radius: 14px; border: 1px solid var(--borde); background: var(--panel); }
+  #incluidos h3 { margin: 0 0 10px; font-size: 15px; }
+  #incluidos a { color: var(--acento); }
+  .incluidos { display: grid; gap: 8px; margin: 0 0 10px; }
+  .incluidos button {
+    text-align: left;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--borde);
+    background: var(--boton);
+    color: var(--texto);
+    font: inherit;
+    cursor: pointer;
+  }
+  .incluidos button b { display: block; font-size: 15px; }
+  .incluidos button span { font-size: 12px; color: var(--tenue); }
 </style>
 </head>
 <body class="juego">
@@ -73,6 +89,11 @@
       guardado en tu teléfono, tablet o computador.</p>
     <label class="boton-grande">Elegir juego<input type="file" id="archivo" hidden></label>
     <p class="nota">En el computador también puedes arrastrar el archivo aquí.</p>
+    <div id="incluidos" hidden>
+      <h3>O prueba un juego libre incluido</h3>
+      <div class="incluidos" id="lista-incluidos"></div>
+      <p class="nota">Juegos caseros publicados por sus autores con licencia libre. <a href="juegos/LICENCIAS.txt">Créditos y licencias</a>.</p>
+    </div>
     <p class="nota">El juego no se sube a ningún lado: se ejecuta en tu propio aparato y las partidas guardadas quedan en este navegador.
       La primera vez se descarga el emulador (unos pocos MB), así que necesitas internet.</p>
     <p class="nota">Usa copias de cartuchos que tengas o juegos caseros (homebrew) de distribución libre.</p>
@@ -94,6 +115,14 @@ const SISTEMAS = {
     extensiones: ['sfc', 'smc', 'fig', 'swc'], tipos: '.sfc o .smc' },
 };
 const COMPRIMIDOS = ['zip', '7z'];
+// juegos libres incluidos en el sitio (carpeta juegos/, ver LICENCIAS.txt), por consola
+const INCLUIDOS = {
+  n64: [
+    { archivo: 'sblobber64.z64', nombre: 'Sblobber 64', detalle: 'Puzle: crece y encoge para resolver cada nivel · 1 jugador' },
+    { archivo: 'Kumi-Daiko-Beatoff-64.n64', nombre: 'Kumi-Daiko Beatoff 64', detalle: 'Combate con tambores contra oleadas de máscaras · 1 a 4 jugadores' },
+  ],
+  snes: [],
+};
 
 const clave = new URLSearchParams(location.search).get('s');
 const sistema = SISTEMAS[clave] || SISTEMAS.n64;
@@ -147,6 +176,28 @@ function cargar(file) {
 }
 
 archivo.addEventListener('change', () => cargar(archivo.files[0]));
+
+// juegos incluidos: se descargan del propio sitio (y quedan guardados para usarlos sin internet)
+const incluidos = INCLUIDOS[clave === 'snes' ? 'snes' : 'n64'];
+$('incluidos').hidden = incluidos.length === 0;
+for (const j of incluidos) {
+  const b = document.createElement('button');
+  b.innerHTML = `<b>${j.nombre}</b><span>${j.detalle}</span>`;
+  b.addEventListener('click', async () => {
+    b.disabled = true;
+    b.querySelector('span').textContent = 'Descargando el juego…';
+    try {
+      const respuesta = await fetch('juegos/' + j.archivo);
+      if (!respuesta.ok) throw new Error(respuesta.status);
+      cargar(new File([await respuesta.blob()], j.archivo));
+    } catch {
+      b.disabled = false;
+      b.querySelector('span').textContent = j.detalle;
+      error.textContent = 'No se pudo descargar el juego. Revisa la conexión a internet.';
+    }
+  });
+  $('lista-incluidos').appendChild(b);
+}
 
 // arrastrar y soltar en el computador
 for (const tipo of ['dragenter', 'dragover']) {
