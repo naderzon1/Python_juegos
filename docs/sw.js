@@ -3,7 +3,7 @@
 // - Archivos propios: primero se piden a internet (así siempre llega la última versión) y,
 //   si no hay conexión, se usa la copia guardada.
 // - Librerías externas (three.js y el emulador): se guardan la primera vez y luego se usan desde el teléfono.
-const CACHE = 'juegos-v3';
+const CACHE = 'juegos-v4';
 const PROPIOS = ['./', 'index.html', 'estilo.css', 'comun.js', 'manifest.webmanifest', 'iconos/icono-192.png', 'iconos/icono-512.png',
   'bloques.html', 'pong.html', 'naves.html', 'naves3d.html', 'plataformas3d.html', 'carreras.html', 'carreras-hd.html',
   'emulador.html', 'n64.html'];

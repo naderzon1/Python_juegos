@@ -31,6 +31,10 @@ Traen juegos caseros libres para abrir con un toque (`docs/juegos/`): en N64, Sb
 y Kumi-Daiko Beatoff 64 (dominio público); en Super Nintendo, Super Sudoku (licencia MIT). Créditos en
 `docs/juegos/LICENCIAS.txt`. Para lo demás, usa copias
 de tus cartuchos u otros juegos caseros libres.
+El **modo mejorado** (panel en la pantalla de elegir juego, se recuerda por consola) agrega: en N64, imagen HD
+(1280×960) o máxima (1920×1440) con suavizado de bordes, pantalla ancha 16:9 y texturas suavizadas (xBRZ);
+en ambas consolas, filtros de televisor clásico, televisor curvo, monitor de arcade o suavizado HQ,
+rebobinar (botón ⏪ mantenido o tecla Retroceso) y avance rápido ×2, ×3 o ×5 (botón ⏩ o tecla Tab).
 
 Publicados en: https://naderzon1.github.io/Python_juegos/
 

@@ -69,12 +69,24 @@
   }
   .incluidos button b { display: block; font-size: 15px; }
   .incluidos button span { font-size: 12px; color: var(--tenue); }
+  #mejorado { margin: 0 0 16px; padding: 12px; border-radius: 14px; border: 1px solid var(--borde); background: var(--panel); text-align: left; }
+  #mejorado h3 { margin: 0; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  #mejorado h3 label { margin-left: auto; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+  #mejorado .opciones { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; align-items: center; margin-top: 12px; font-size: 14px; }
+  #mejorado [hidden] { display: none; }
+  #mejorado select { font: inherit; font-size: 14px; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--borde); background: var(--boton); color: var(--texto); min-width: 0; }
+  #mejorado .marca { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  #mejorado input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--acento); }
+  #mejorado p.nota { grid-column: 1 / -1; margin: 0; text-align: left; }
+  .barra button.encendido { border-color: var(--acento); background: var(--boton-pulsado); }
 </style>
 </head>
 <body class="juego">
 <header class="barra">
   <a href="index.html" aria-label="Volver al menú">⌂</a>
   <h1 id="titulo">Emulador</h1>
+  <button id="b-rebobinar" hidden aria-label="Rebobinar (mantener apretado)" title="Rebobinar: mantén apretado (tecla Retroceso)">⏪</button>
+  <button id="b-rapido" hidden aria-label="Avance rápido" title="Avance rápido (tecla Tab)">⏩</button>
   <button id="b-cambiar" hidden>Cambiar juego</button>
 </header>
 <div class="zona" id="zona">
@@ -85,6 +97,36 @@
       <a href="?s=n64" data-s="n64">Nintendo 64</a>
       <a href="?s=snes" data-s="snes">Super Nintendo</a>
     </nav>
+    <section id="mejorado" aria-label="Modo mejorado">
+      <h3>✨ Modo mejorado
+        <label><input type="checkbox" id="m-activo"> Activado</label></h3>
+      <div class="opciones" id="m-opciones">
+        <label for="m-resolucion" data-solo="n64">Imagen</label>
+        <select id="m-resolucion" data-solo="n64">
+          <option value="normal">Original (640×480)</option>
+          <option value="hd">HD (1280×960)</option>
+          <option value="max">Máxima (1920×1440)</option>
+        </select>
+        <label class="marca" data-solo="n64"><input type="checkbox" id="m-ancha"> Pantalla ancha 16:9</label>
+        <label class="marca" data-solo="n64"><input type="checkbox" id="m-texturas"> Texturas suavizadas (xBRZ)</label>
+        <label for="m-filtro">Filtro</label>
+        <select id="m-filtro">
+          <option value="disabled">Ninguno (píxeles nítidos)</option>
+          <option value="crt-easymode.glslp">Televisor clásico</option>
+          <option value="crt-geom.glslp">Televisor curvo</option>
+          <option value="crt-aperture.glslp">Monitor de arcade</option>
+          <option value="2xScaleHQ.glslp">Suavizado HQ</option>
+        </select>
+        <label for="m-rapido">Avance rápido</label>
+        <select id="m-rapido">
+          <option value="2.0">×2</option>
+          <option value="3.0">×3</option>
+          <option value="5.0">×5</option>
+        </select>
+        <label class="marca"><input type="checkbox" id="m-rebobinar"> Rebobinar (volver unos segundos atrás)</label>
+        <p class="nota" id="m-nota"></p>
+      </div>
+    </section>
     <p>Elige un archivo de juego (<b id="tipos"></b>, también dentro de un <b>.zip</b>)
       guardado en tu teléfono, tablet o computador.</p>
     <label class="boton-grande">Elegir juego<input type="file" id="archivo" hidden></label>
@@ -138,8 +180,115 @@ $('icono').textContent = sistema.icono;
 $('tipos').textContent = sistema.tipos;
 archivo.accept = [...sistema.extensiones, ...COMPRIMIDOS].map((e) => '.' + e).join(',');
 $('ayuda').textContent = 'En pantallas táctiles aparece un mando en pantalla. Con teclado o con un mando USB o Bluetooth, '
-  + `los botones se configuran en el menú del emulador (ícono de control). Emulador: EmulatorJS con el núcleo ${sistema.motor}.`;
+  + `los botones se configuran en el menú del emulador (ícono de control). Arriba: ⏪ mantén apretado para rebobinar (tecla Retroceso) `
+  + `y ⏩ avance rápido (tecla Tab). Emulador: EmulatorJS con el núcleo ${sistema.motor}.`;
 for (const a of document.querySelectorAll('.sistemas a')) a.classList.toggle('activo', SISTEMAS[a.dataset.s] === sistema);
+
+// ---- modo mejorado ----
+// Se guarda por consola y se escribe en la configuración de EmulatorJS justo antes de abrir el juego
+// (EmulatorJS ignora EJS_defaultOptions cuando ya tiene opciones guardadas de ese juego).
+const MEJORADO_INICIAL = {
+  n64: { activo: true, resolucion: 'hd', ancha: false, texturas: false, filtro: 'disabled', rapido: '3.0', rebobinar: false },
+  snes: { activo: true, filtro: 'crt-easymode.glslp', rapido: '3.0', rebobinar: true },
+};
+const CLAVE_MEJORADO = 'emulador_mejorado_' + sistema.nucleo;
+const mejorado = { ...MEJORADO_INICIAL[sistema.nucleo] };
+try { Object.assign(mejorado, JSON.parse(localStorage.getItem(CLAVE_MEJORADO)) || {}); } catch { /* sin almacenamiento */ }
+
+const campos = {
+  activo: $('m-activo'), resolucion: $('m-resolucion'), ancha: $('m-ancha'), texturas: $('m-texturas'),
+  filtro: $('m-filtro'), rapido: $('m-rapido'), rebobinar: $('m-rebobinar'),
+};
+for (const el of document.querySelectorAll('#mejorado [data-solo]')) el.hidden = el.dataset.solo !== sistema.nucleo;
+
+function mostrarMejorado() {
+  for (const [k, el] of Object.entries(campos)) {
+    if (el.type === 'checkbox') el.checked = !!mejorado[k];
+    else if (mejorado[k] !== undefined) el.value = mejorado[k];
+  }
+  $('m-opciones').hidden = !mejorado.activo;
+  const n64 = sistema.nucleo === 'n64';
+  $('m-nota').textContent = 'Se aplica al abrir el juego. '
+    + (n64 ? 'Más resolución pide un aparato potente: si el juego va lento, baja la imagen. '
+      + 'La pantalla ancha muestra más escenario en juegos 3D (algunos se ven estirados). ' : '')
+    + (mejorado.rebobinar ? `Rebobinar guarda los últimos segundos en memoria${n64 ? ' y en N64 puede poner lento el juego en teléfonos' : ''}.` : '');
+}
+for (const [k, el] of Object.entries(campos)) {
+  el.addEventListener('change', () => {
+    mejorado[k] = el.type === 'checkbox' ? el.checked : el.value;
+    try { localStorage.setItem(CLAVE_MEJORADO, JSON.stringify(mejorado)); } catch { /* sin almacenamiento */ }
+    mostrarMejorado();
+  });
+}
+mostrarMejorado();
+
+// opciones de EmulatorJS (nombres y valores de su menú); con el modo apagado se vuelve a lo original
+function opcionesEmulador() {
+  const m = mejorado, si = m.activo;
+  const o = {
+    shader: si ? m.filtro : 'disabled',
+    'ff-ratio': si ? m.rapido : '3.0',
+    rewindEnabled: si && m.rebobinar ? 'enabled' : 'disabled',
+  };
+  if (sistema.nucleo === 'n64') {
+    const r = si ? m.resolucion : 'normal';
+    o['mupen64plus-43screensize'] = { normal: '640x480', hd: '1280x960', max: '1920x1440' }[r];
+    o['mupen64plus-169screensize'] = { normal: '960x540', hd: '1280x720', max: '1920x1080' }[r];
+    o['mupen64plus-aspect'] = si && m.ancha ? '16:9 adjusted' : '4:3';
+    o['mupen64plus-FXAA'] = r === 'normal' ? '0' : '1';
+    o['mupen64plus-txEnhancementMode'] = si && m.texturas ? '2xBRZ' : 'None';
+  }
+  return o;
+}
+
+function aplicarMejorado(nombreJuego) {
+  const o = opcionesEmulador();
+  window.EJS_defaultOptions = o;
+  // EmulatorJS solo pasa al núcleo (antes de arrancar) las opciones guardadas del juego, así que se
+  // escriben ahí. Si el juego es nuevo basta con { settings }: sin controles guardados, conserva los suyos.
+  const k = `ejs-1-${sistema.nucleo}-${nombreJuego}-settings`;
+  try {
+    let guardado = JSON.parse(localStorage.getItem(k));
+    if (!(guardado instanceof Object) || !(guardado.settings instanceof Object)) guardado = { settings: {} };
+    Object.assign(guardado.settings, o);
+    localStorage.setItem(k, JSON.stringify(guardado));
+  } catch { /* sin almacenamiento */ }
+}
+
+// rebobinar (mantener) y avance rápido (alternar), con botones arriba o con el teclado
+const bRebobinar = $('b-rebobinar'), bRapido = $('b-rapido');
+const motor = () => window.EJS_emulator && window.EJS_emulator.gameManager;
+let rebobinando = false, rapido = false;
+function rebobinar(si) {
+  const g = motor();
+  if (!g || bRebobinar.hidden || si === rebobinando) return;
+  rebobinando = si;
+  g.functions.toggleRewind(si ? 1 : 0);
+  bRebobinar.classList.toggle('encendido', si);
+}
+function avanceRapido(si) {
+  const g = motor();
+  if (!g) return;
+  rapido = si;
+  if (si) g.setFastForwardRatio(parseFloat(opcionesEmulador()['ff-ratio']));
+  window.EJS_emulator.isFastForward = si;
+  g.toggleFastForward(si ? 1 : 0);
+  bRapido.classList.toggle('encendido', si);
+}
+bRebobinar.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  bRebobinar.setPointerCapture(e.pointerId);
+  rebobinar(true);
+});
+for (const tipo of ['pointerup', 'pointercancel', 'lostpointercapture']) bRebobinar.addEventListener(tipo, () => rebobinar(false));
+bRebobinar.addEventListener('contextmenu', (e) => e.preventDefault());
+bRapido.addEventListener('click', () => avanceRapido(!rapido));
+addEventListener('keydown', (e) => {
+  if (juego.hidden) return;
+  if (e.code === 'Backspace') { e.preventDefault(); rebobinar(true); }
+  if (e.code === 'Tab') { e.preventDefault(); if (!e.repeat) avanceRapido(!rapido); }
+}, true);
+addEventListener('keyup', (e) => { if (e.code === 'Backspace') rebobinar(false); }, true);
 
 function cargar(file) {
   if (!file) return;
@@ -155,6 +304,8 @@ function cargar(file) {
   elegir.hidden = true;
   juego.hidden = false;
   cambiar.hidden = false;
+  bRapido.hidden = false;
+  bRebobinar.hidden = !(mejorado.activo && mejorado.rebobinar);
 
   // configuración que lee EmulatorJS al cargar
   window.EJS_player = '#juego';
@@ -166,6 +317,7 @@ function cargar(file) {
   window.EJS_startOnLoaded = true;
   window.EJS_color = '#4fc3f7';
   window.EJS_backgroundColor = '#101624';
+  aplicarMejorado(window.EJS_gameName);
 
   const s = document.createElement('script');
   s.src = EMULADOR + 'loader.js';
