@@ -119,16 +119,6 @@ canvas {
   color: var(--tenue);
   display: none;
 }
-.girar {
-  grid-column: 1 / -1;
-  margin: 0;
-  padding: 6px;
-  text-align: center;
-  font-size: 13px;
-  color: var(--tenue);
-  display: none;
-}
-
 /* teléfono acostado: los botones van a los lados del tablero */
 @media (orientation: landscape) and (max-height: 620px) {
   body.juego {
@@ -149,11 +139,6 @@ canvas {
     grid-template-areas: "barra" "zona" "ayuda";
   }
   .ayuda { display: block; grid-area: ayuda; }
-}
-
-/* juegos apaisados en un teléfono vertical: sugerir girarlo */
-@media (orientation: portrait) and (max-width: 600px) {
-  body.apaisado .girar { display: block; }
 }
 
 /* --- juegos 3D: la escena llena toda la zona y el marcador va encima ---------- */

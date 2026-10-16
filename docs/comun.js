@@ -198,6 +198,39 @@ function botonMantener(boton, alPulsar, alSoltar = () => {}) {
   boton.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
+// Mandos de juego (Bluetooth o USB) con la distribución estándar del navegador:
+// A/B/X/Y = botones 0-3, LB/RB = 4/5, LT/RT = 6/7, Select = 8, Start = 9, cruceta = 12-15.
+// leer() se llama una vez por cuadro: "ahora" es lo que está apretado y "recien" lo que se acaba de apretar.
+const Mandos = (() => {
+  const anteriores = [];
+  return {
+    leer() {
+      const lista = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+      return lista.map((p, i) => {
+        const boton = (k) => !!(p.buttons[k] && (p.buttons[k].pressed || p.buttons[k].value > 0.5));
+        const ejeX = p.axes[0] || 0, ejeY = p.axes[1] || 0;
+        const ahora = {
+          izq: boton(14) || ejeX < -0.5, der: boton(15) || ejeX > 0.5, arriba: boton(12) || ejeY < -0.6, abajo: boton(13) || ejeY > 0.6,
+          a: boton(0), b: boton(1), x: boton(2), y: boton(3), lb: boton(4), rb: boton(5), lt: boton(6), rt: boton(7),
+          select: boton(8), start: boton(9),
+        };
+        const antes = anteriores[i] || {};
+        const recien = {};
+        for (const k in ahora) recien[k] = ahora[k] && !antes[k];
+        anteriores[i] = ahora;
+        // la palanca también se entrega analógica (sin la zona muerta del centro)
+        const muerta = (v) => (Math.abs(v) < 0.2 ? 0 : v);
+        return { ahora, recien, ejeX: muerta(ejeX), ejeY: muerta(ejeY) };
+      });
+    },
+  };
+})();
+
+// Para que el sitio se instale como app y funcione sin internet (ver sw.js)
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => { /* sin modo sin conexión */ }));
+}
+
 // Vibración corta al recibir un golpe; solo si ya se tocó la pantalla (el navegador la bloquea antes,
 // y en el computador no tiene sentido).
 let tocoPantalla = false;

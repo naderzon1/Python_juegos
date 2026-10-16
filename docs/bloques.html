@@ -6,6 +6,11 @@
 <meta name="theme-color" content="#101624">
 <title>Bloques</title>
 <link rel="stylesheet" href="estilo.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="iconos/icono-192.png">
+<link rel="apple-touch-icon" href="iconos/icono-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 <body class="juego">
 <header class="barra">
@@ -26,7 +31,7 @@
   <button id="t-girar" aria-label="Girar">⟳</button>
   <button id="t-soltar" aria-label="Soltar de golpe">⤓</button>
 </div>
-<p class="ayuda">← → mover · ↓ bajar · ↑ o X girar · Z girar al revés · Espacio soltar · C guardar · M sonido · P pausa · R reiniciar</p>
+<p class="ayuda">← → mover · ↓ bajar · ↑ o X girar · Z girar al revés · Espacio soltar · C guardar · M sonido · P pausa · R reiniciar · Con mando: cruceta, A / B girar, arriba soltar, LB / RB guardar, Start pausa</p>
 
 <script src="comun.js"></script>
 <script>
@@ -522,8 +527,32 @@ function dibujar() {
   }
 }
 
+// mando: cruceta o palanca para mover y bajar, arriba suelta de golpe, A gira, B gira al revés,
+// LB / RB / X / Y guardan la pieza y Start pausa
+const mando = { dir: 0, abajo: false };
+function leerMando() {
+  const m = Mandos.leer()[0];
+  if (!m) return;
+  const { ahora, recien } = m;
+  if (j.estado === 'inicio') { if (recien.a || recien.start) empezar(); return; }
+  if (j.estado === 'fin') { if (recien.a || recien.start) reiniciar(); return; }
+  if (recien.start) alternarPausa();
+  if (!jugando()) return;
+  const dir = ahora.izq ? -1 : ahora.der ? 1 : 0;
+  if (dir !== mando.dir) {
+    if (mando.dir) pararMover(mando.dir);
+    if (dir) empezarMover(dir);
+    mando.dir = dir;
+  }
+  if (ahora.abajo !== mando.abajo) { j.bajando = ahora.abajo; mando.abajo = ahora.abajo; }
+  if (recien.a) girar(1);
+  if (recien.b) girar(-1);
+  if (recien.arriba) soltar();
+  if (recien.lb || recien.rb || recien.x || recien.y) guardar();
+}
+
 reiniciar('inicio');
-bucle((dt) => { actualizar(dt); dibujar(); });
+bucle((dt) => { leerMando(); actualizar(dt); dibujar(); });
 window.juego = { j, reiniciar, actualizar, girar, mover, soltar, guardar, fijar, cabe, intervalo, Sonido };
 </script>
 </body>

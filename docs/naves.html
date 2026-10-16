@@ -6,6 +6,11 @@
 <meta name="theme-color" content="#05060f">
 <title>Duelo de naves</title>
 <link rel="stylesheet" href="estilo.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="iconos/icono-192.png">
+<link rel="apple-touch-icon" href="iconos/icono-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 <body class="juego">
 <header class="barra">
@@ -18,14 +23,16 @@
   <button id="b-reiniciar" aria-label="Reiniciar">↻</button>
 </header>
 <div class="zona"><canvas id="lienzo"></canvas></div>
-<p class="ayuda">J1: A / D + W o Espacio · J2: ← → + ↑ o Enter (en Tú vs PC también flechas) · J cambiar modo · 1 / 2 / 3 dificultad · P pausa · R reiniciar · M sonido</p>
+<p class="ayuda">J1: A / D + W o Espacio · J2: ← → + ↑ o Enter (en Tú vs PC también flechas) · J cambiar modo · 1 / 2 / 3 dificultad · P pausa · R reiniciar · M sonido · Con mando: palanca o cruceta, A o RT dispara, Start pausa</p>
 
 <script src="comun.js"></script>
 <script>
 'use strict';
-const ANCHO = 700, ALTO = 600, NAVE_W = 44, NAVE_H = 30, VIDA = 10;
+// medidas del campo: 700 x 600 con la pantalla acostada; más angosto y alto con el teléfono vertical
+let ANCHO = 700, ALTO = 600;
+let Y_NAVE = [ALTO - 45, 45];                          // bando 0 abajo, bando 1 arriba
+const NAVE_W = 44, NAVE_H = 30, VIDA = 10;
 const VEL_NAVE = 7, VEL_BALA = 9, ENFRIAMIENTO = 15;  // en pasos de 1/60 s, como en Python
-const Y_NAVE = [ALTO - 45, 45];                        // bando 0 abajo, bando 1 arriba
 const ARRASTRE = 1.3;                                  // cuánto se mueve la nave por cada píxel que se mueve el dedo
 
 // modos de juego: el botón los recorre en este orden
@@ -70,9 +77,10 @@ const j = { estado: 'inicio', modo: Guardado.leer('naves_modo', UNO), nivel: Gua
 j.victorias = [0, 0];
 const teclas = new Set();
 const dedos = new Map(); // id del dedo -> { nave, x }
-const estrellas = Array.from({ length: 130 }, () => [Math.random() * ANCHO, Math.random() * ALTO,
+const crearEstrellas = () => Array.from({ length: 130 }, () => [Math.random() * ANCHO, Math.random() * ALTO,
   [1, 1, 1, 2, 2, 3][Math.floor(Math.random() * 6)],
   ['#445', '#889', '#ccd', '#fff', '#ffe9a8', '#a8d8ff'][Math.floor(Math.random() * 6)]]);
+let estrellas = crearEstrellas();
 
 function reiniciar() {
   const equipo = j.modo === EQUIPO;
@@ -102,14 +110,16 @@ function tocaDisparar(i) {
   return false;
 }
 
-function moverHumano(i, [izq, der, disp]) {
+function moverHumano(i, [izq, der, disp], m) {
   if (j.vida[i] <= 0) return;
   if (izq.some((k) => teclas.has(k))) j.x[i] -= VEL_NAVE;
   if (der.some((k) => teclas.has(k))) j.x[i] += VEL_NAVE;
+  if (m) j.x[i] += (m.ejeX || (m.ahora.der ? 1 : m.ahora.izq ? -1 : 0)) * VEL_NAVE; // mando: palanca o cruceta
   j.x[i] = Math.max(NAVE_W / 2, Math.min(ANCHO - NAVE_W / 2, j.x[i]));
   j.cd[i] = Math.max(0, j.cd[i] - 1);
-  // con el dedo apoyado la nave dispara sola
-  if ((disp.some((k) => teclas.has(k)) || tocaDisparar(i)) && j.cd[i] === 0) {
+  // con el dedo apoyado (o A / RT del mando) la nave dispara sola
+  const mandoDispara = m && (m.ahora.a || m.ahora.rt || m.ahora.b);
+  if ((disp.some((k) => teclas.has(k)) || tocaDisparar(i) || mandoDispara) && j.cd[i] === 0) {
     disparar(i);
     j.cd[i] = ENFRIAMIENTO;
   }
@@ -121,7 +131,7 @@ function moverIA() {
   // 1) esquivar la bala rival más cercana
   let peligro = null;
   for (const b of j.balas) {
-    if (BANDO[b[3]] === 0 && b[1] < 260 && Math.abs(b[0] - j.x[1]) < NAVE_W) {
+    if (BANDO[b[3]] === 0 && b[1] < Y_NAVE[1] + 215 && Math.abs(b[0] - j.x[1]) < NAVE_W) {
       if (peligro === null || b[1] < peligro[1]) peligro = b;
     }
   }
@@ -202,10 +212,10 @@ const paso = pasosFijos(() => {
   if (j.estado !== 'jugando' || j.pausa) return;
   if (!j.fin) {
     if (j.modo === UNO) {
-      moverHumano(0, TECLAS_SOLO);
+      moverHumano(0, TECLAS_SOLO, mandos[0]);
     } else {
-      moverHumano(0, TECLAS_J1);
-      moverHumano(j.modo === EQUIPO ? 2 : 1, TECLAS_J2);
+      moverHumano(0, TECLAS_J1, mandos[0]);
+      moverHumano(j.modo === EQUIPO ? 2 : 1, TECLAS_J2, mandos[1]);
     }
     if (j.modo !== DUELO) moverIA();
     moverBalas();
@@ -281,8 +291,32 @@ function naveDelDedo(pos) {
 // puede ir en el espacio libre de abajo (o de arriba) sin tapar la nave
 const lienzo = $('lienzo');
 const tactil = lienzo.parentElement;
-const pantalla = prepararLienzo(lienzo, ANCHO, ALTO);
-const g = pantalla.g;
+const g = lienzo.getContext('2d');
+// el campo toma la forma de la pantalla; si cambia a mitad de partida, la ronda vuelve a empezar
+function ajustar() {
+  const [ancho, alto] = tactil.clientHeight > tactil.clientWidth * 1.15 ? [460, 800] : [700, 600];
+  if (ancho !== ANCHO || alto !== ALTO) {
+    ANCHO = ancho;
+    ALTO = alto;
+    Y_NAVE = [ALTO - 45, 45];
+    estrellas = crearEstrellas();
+    dibujarFondo();
+    if (j.estado === 'jugando') reiniciar();
+  }
+  const esc = Math.max(0.05, Math.min(tactil.clientWidth / ANCHO, tactil.clientHeight / ALTO));
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  lienzo.style.width = Math.floor(ANCHO * esc) + 'px';
+  lienzo.style.height = Math.floor(ALTO * esc) + 'px';
+  lienzo.width = Math.max(1, Math.round(ANCHO * esc * dpr));
+  lienzo.height = Math.max(1, Math.round(ALTO * esc * dpr));
+  g.setTransform(lienzo.width / ANCHO, 0, 0, lienzo.height / ALTO, 0, 0);
+}
+const pantalla = {
+  aJuego(e) {
+    const r = lienzo.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * ANCHO / r.width, y: (e.clientY - r.top) * ALTO / r.height };
+  },
+};
 tactil.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   if (j.estado === 'inicio') { empezar(); return; }
@@ -311,13 +345,16 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // --- dibujo ---
-// el fondo (degradado, nebulosas, planeta, luna) no cambia: se dibuja una vez en un lienzo aparte
+// el fondo (degradado, nebulosas, planeta, luna) no cambia: se dibuja en un lienzo aparte,
+// con las posiciones pensadas para 700 x 600 y repartidas según la forma del campo
 const fondo = document.createElement('canvas');
-fondo.width = ANCHO * 2;
-fondo.height = ALTO * 2;
-(() => {
+function dibujarFondo() {
+  fondo.width = ANCHO * 2;
+  fondo.height = ALTO * 2;
   const f = fondo.getContext('2d');
-  f.scale(2, 2);
+  const sx = ANCHO / 700, sy = ALTO / 600, k = Math.sqrt(sx * sy);
+  // cada elemento se ubica en su lugar proporcional y conserva su forma
+  f.setTransform(2, 0, 0, 2, 0, 0);
   const grad = f.createLinearGradient(0, 0, 0, ALTO);
   grad.addColorStop(0, '#04050f');
   grad.addColorStop(1, '#12092a');
@@ -326,38 +363,41 @@ fondo.height = ALTO * 2;
   // nebulosas: capas concéntricas translúcidas
   for (const [x, y, rx, ry, col] of [[130, 170, 190, 90, '156,39,176'], [570, 110, 170, 70, '0,172,193'],
     [380, 470, 230, 90, '101,31,255'], [90, 520, 160, 60, '2,136,209']]) {
-    for (let k = 0; k < 6; k++) {
-      const t = 1 - k * 0.16;
+    for (let c = 0; c < 6; c++) {
+      const t = 1 - c * 0.16;
       f.fillStyle = `rgba(${col},0.07)`;
       f.beginPath();
-      f.ellipse(x, y, rx * t, ry * t, 0, 0, Math.PI * 2);
+      f.ellipse(x * sx, y * sy, rx * t * k, ry * t * k, 0, 0, Math.PI * 2);
       f.fill();
     }
   }
   // planeta gigante con anillos (la mitad de atrás del anillo va detrás del planeta)
-  const [px, py, pr] = [580, 450, 55];
-  f.lineWidth = 5;
+  const [px, py, pr] = [580 * sx, 450 * sy, 55 * k];
+  f.lineWidth = 5 * k;
   f.strokeStyle = '#6f6152';
-  f.beginPath(); f.ellipse(px, py, 105, 20, 0, Math.PI, Math.PI * 2); f.stroke();
-  for (const [dx, dy, r, col] of [[0, 0, pr, '#6e3a1c'], [-5, -4.5, pr - 9, '#a65d2e'], [-10, -10, pr - 20, '#d38a4b']]) {
+  f.beginPath(); f.ellipse(px, py, 105 * k, 20 * k, 0, Math.PI, Math.PI * 2); f.stroke();
+  for (const [dx, dy, r, col] of [[0, 0, pr, '#6e3a1c'], [-5 * k, -4.5 * k, pr - 9 * k, '#a65d2e'], [-10 * k, -10 * k, pr - 20 * k, '#d38a4b']]) {
     f.fillStyle = col;
     f.beginPath(); f.arc(px + dx, py + dy, r, 0, Math.PI * 2); f.fill();
   }
   f.strokeStyle = '#b8a48e';
-  f.beginPath(); f.ellipse(px, py, 105, 20, 0, 0, Math.PI); f.stroke();
+  f.beginPath(); f.ellipse(px, py, 105 * k, 20 * k, 0, 0, Math.PI); f.stroke();
   // luna y planeta lejano
   for (const [x, y, r, col] of [[62, 432, 22, '#4a4a4a'], [58.5, 428.5, 15.5, '#9e9e9e'], [56, 428, 4, '#757575'],
     [334, 74, 14, '#006978'], [332, 72, 10, '#4dd0e1']]) {
     f.fillStyle = col;
-    f.beginPath(); f.arc(x, y, r, 0, Math.PI * 2); f.fill();
+    f.beginPath(); f.arc(x * sx, y * sy, r * k, 0, Math.PI * 2); f.fill();
   }
   // asteroides decorativos
   f.fillStyle = '#5d5650';
-  for (let k = 0; k < 9; k++) {
-    const ax = 120 + ((k * 137) % 340), ay = 330 + ((k * 53) % 100), ar = 3 + (k % 5);
+  for (let c = 0; c < 9; c++) {
+    const ax = (120 + ((c * 137) % 340)) * sx, ay = (330 + ((c * 53) % 100)) * sy, ar = (3 + (c % 5)) * k;
     f.beginPath(); f.ellipse(ax, ay, ar, ar * 0.8, 0, 0, Math.PI * 2); f.fill();
   }
-})();
+}
+dibujarFondo();
+new ResizeObserver(ajustar).observe(tactil);
+ajustar();
 
 // en pantallas chicas el dibujo se reduce mucho: el texto se agranda para que siga legible
 function aumento() {
@@ -433,8 +473,10 @@ function dibujar(dt) {
   barra(15, ALTO - 22, 0);
   if (j.modo === EQUIPO) barra(15 + (VIDA + 1) * 14, ALTO - 22, 2);
   const [n1, n2] = NOMBRES[j.modo];
-  texto(`${n2}  [${j.victorias[1]}]`, ANCHO - 15, 17, 11, COLOR[1], { alinear: 'right' });
-  texto(`${n1}  [${j.victorias[0]}]`, ANCHO - 15, ALTO - 17, 11, COLOR[0], { alinear: 'right' });
+  // en el campo angosto los nombres van en su propia línea para no tapar las barras
+  const angosto = ANCHO < 600;
+  texto(`${n2}  [${j.victorias[1]}]`, ANCHO - 15, angosto ? 34 : 17, 11, COLOR[1], { alinear: 'right' });
+  texto(`${n1}  [${j.victorias[0]}]`, ANCHO - 15, angosto ? ALTO - 36 : ALTO - 17, 11, COLOR[0], { alinear: 'right' });
   const modo = MODO[j.modo] + (j.modo === DUELO ? '' : ` - ${DIFICULTAD[j.nivel][0]}`);
   texto(modo, ANCHO / 2, ALTO / 2, 12, '#8a8fb0');
 
@@ -478,7 +520,18 @@ function dibujar(dt) {
   }
 }
 
-bucle((dt) => { paso(dt); dibujar(dt); });
+// mandos: el 1 maneja al jugador 1 y el 2 al jugador 2 (rival o compañero); Start o A empiezan, Start pausa
+let mandos = [];
+function leerMandos() {
+  mandos = Mandos.leer();
+  for (const m of mandos) {
+    if (j.estado === 'inicio') { if (m.recien.a || m.recien.start) empezar(); }
+    else if (j.fin) { if (m.recien.a || m.recien.start) reiniciar(); }
+    else if (m.recien.start) alternarPausa();
+  }
+}
+
+bucle((dt) => { leerMandos(); paso(dt); dibujar(dt); });
 window.juego = { j, reiniciar, dedos, teclas, Sonido };
 </script>
 </body>

@@ -6,8 +6,13 @@
 <meta name="theme-color" content="#101820">
 <title>Pong</title>
 <link rel="stylesheet" href="estilo.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="iconos/icono-192.png">
+<link rel="apple-touch-icon" href="iconos/icono-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 </head>
-<body class="juego apaisado">
+<body class="juego">
 <header class="barra">
   <a href="index.html" aria-label="Volver al menú">⌂</a>
   <h1>Pong</h1>
@@ -18,8 +23,7 @@
   <button id="b-reiniciar" aria-label="Reiniciar">↻</button>
 </header>
 <div class="zona"><canvas id="lienzo"></canvas></div>
-<p class="girar">Gira el teléfono para ver la cancha más grande.</p>
-<p class="ayuda">Jugador 1: W / S (o flechas en modo 1 jugador) · Jugador 2: flechas · 1 / 2 / 3 dificultad · J cambiar jugadores · Espacio pausa · R reiniciar · M sonido</p>
+<p class="ayuda">Jugador 1: W / S (o flechas en modo 1 jugador) · Jugador 2: flechas · 1 / 2 / 3 dificultad · J cambiar jugadores · Espacio pausa · R reiniciar · M sonido · Con mando: palanca o cruceta, Start pausa</p>
 
 <script src="comun.js"></script>
 <script>
@@ -63,10 +67,15 @@ function sacar(direccion) {
   p.espera = 40; // pasos de pausa antes de mover la bola
 }
 
-function moverHumano(lado, arriba, abajo) {
+function moverHumano(lado, arriba, abajo, m) {
   const clave = lado === 'izq' ? 'yIzq' : 'yDer';
   if (arriba.some((k) => teclas.has(k))) p[clave] -= VEL_USUARIO;
   if (abajo.some((k) => teclas.has(k))) p[clave] += VEL_USUARIO;
+  if (m) { // mando: palanca (proporcional) o cruceta; con la cancha girada se mueve a los lados
+    const eje = vertical ? m.ejeX : m.ejeY;
+    const cruceta = vertical ? (m.ahora.der ? 1 : m.ahora.izq ? -1 : 0) : (m.ahora.abajo ? 1 : m.ahora.arriba ? -1 : 0);
+    p[clave] += (eje || cruceta) * VEL_USUARIO * 1.2;
+  }
   if (objetivo[lado] !== null) {
     const dif = objetivo[lado] - PALETA_H / 2 - p[clave];
     p[clave] += Math.max(-VEL_DEDO, Math.min(VEL_DEDO, dif));
@@ -129,10 +138,10 @@ function punto(direccion) {
 const paso = pasosFijos(() => {
   if (p.estado !== 'jugando' || p.pausa || p.fin) return;
   if (p.dos) {
-    moverHumano('izq', ['w'], ['s']);
-    moverHumano('der', ['arrowup'], ['arrowdown']);
+    moverHumano('izq', ['w'], ['s'], mandos[0]);
+    moverHumano('der', ['arrowup'], ['arrowdown'], mandos[1]);
   } else {
-    moverHumano('izq', ['w', 'arrowup'], ['s', 'arrowdown']);
+    moverHumano('izq', ['w', 'arrowup'], ['s', 'arrowdown'], mandos[0]);
     moverIA();
   }
   moverBola();
@@ -192,18 +201,39 @@ addEventListener('keydown', (e) => {
 addEventListener('keyup', (e) => teclas.delete(e.key.toLowerCase()));
 addEventListener('blur', () => teclas.clear());
 
-// dedos: en 1 jugador cualquier dedo mueve tu paleta; en 2 jugadores cada mitad mueve la suya
-// se escucha toda la zona del juego, no solo el dibujo, para que el dedo no tape la paleta
+// --- pantalla: con el teléfono vertical la cancha se gira 90° (tu paleta queda abajo) ---
 const lienzo = $('lienzo');
 const tactil = lienzo.parentElement;
-const pantalla = prepararLienzo(lienzo, ANCHO, ALTO);
-const g = pantalla.g;
+const g = lienzo.getContext('2d');
+let vertical = false, WL = ANCHO, HL = ALTO; // medidas del dibujo en pantalla
+function ajustar() {
+  vertical = tactil.clientHeight > tactil.clientWidth * 1.15;
+  [WL, HL] = vertical ? [ALTO, ANCHO] : [ANCHO, ALTO];
+  const esc = Math.max(0.05, Math.min(tactil.clientWidth / WL, tactil.clientHeight / HL));
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  lienzo.style.width = Math.floor(WL * esc) + 'px';
+  lienzo.style.height = Math.floor(HL * esc) + 'px';
+  lienzo.width = Math.max(1, Math.round(WL * esc * dpr));
+  lienzo.height = Math.max(1, Math.round(HL * esc * dpr));
+}
+new ResizeObserver(ajustar).observe(tactil);
+ajustar();
+const base = () => g.setTransform(lienzo.width / WL, 0, 0, lienzo.height / HL, 0, 0);
+// posición de un dedo en la cancha (x a lo largo, y a lo ancho), esté girada o no
+function aCancha(e) {
+  const r = lienzo.getBoundingClientRect();
+  const sx = (e.clientX - r.left) * WL / r.width, sy = (e.clientY - r.top) * HL / r.height;
+  return vertical ? { x: ANCHO - sy, y: sx } : { x: sx, y: sy };
+}
+
+// dedos: en 1 jugador cualquier dedo mueve tu paleta; en 2 jugadores cada mitad mueve la suya
+// se escucha toda la zona del juego, no solo el dibujo, para que el dedo no tape la paleta
 tactil.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   if (p.estado === 'inicio') { empezar(); return; }
   if (p.fin) { reiniciar(); return; }
   if (p.pausa) { alternarPausa(); return; }
-  const pos = pantalla.aJuego(e);
+  const pos = aCancha(e);
   const lado = p.dos && pos.x > ANCHO / 2 ? 'der' : 'izq';
   dedos.set(e.pointerId, lado);
   objetivo[lado] = pos.y;
@@ -211,7 +241,7 @@ tactil.addEventListener('pointerdown', (e) => {
 });
 tactil.addEventListener('pointermove', (e) => {
   const lado = dedos.get(e.pointerId);
-  if (lado) objetivo[lado] = pantalla.aJuego(e).y;
+  if (lado) objetivo[lado] = aCancha(e).y;
 });
 const soltarDedo = (e) => {
   const lado = dedos.get(e.pointerId);
@@ -226,59 +256,97 @@ document.addEventListener('visibilitychange', () => {
 
 // --- dibujo ---
 // en pantallas chicas el dibujo se reduce mucho: el texto se agranda para que siga legible
-function texto(txt, x, y, tam, tinta, negrita = false) {
-  const aumento = Math.max(1, 0.7 * ANCHO / Math.max(1, lienzo.clientWidth));
+// los textos se escriben siempre derechos, en coordenadas de pantalla
+function texto(txt, x, y, tam, tinta, negrita = false, girado = false) {
+  const aumento = Math.max(1, 0.7 * WL / Math.max(1, lienzo.clientWidth));
+  g.save();
+  if (girado) { g.translate(x, y); g.rotate(Math.PI); x = 0; y = 0; } // para quien juega del otro lado
   g.font = `${negrita ? 'bold ' : ''}${Math.round(tam * aumento)}px ${LETRA}`;
   g.fillStyle = tinta;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.fillText(txt, x, y);
+  g.restore();
 }
 
 function dibujar(dt) {
+  base();
   g.fillStyle = '#101820';
-  g.fillRect(0, 0, ANCHO, ALTO);
+  g.fillRect(0, 0, WL, HL);
+  // la cancha se dibuja en sus propias coordenadas; con el teléfono vertical, girada 90°
+  if (vertical) g.transform(0, -1, 1, 0, 0, ANCHO);
   g.fillStyle = '#2a3a4a';
   for (let y = 0; y < ALTO; y += 30) g.fillRect(ANCHO / 2 - 2, y, 4, 16);
+  if (p.estado !== 'inicio') {
+    g.fillStyle = AZUL;
+    g.fillRect(20, p.yIzq, PALETA_W, PALETA_H);
+    g.fillStyle = NARANJA;
+    g.fillRect(ANCHO - 20 - PALETA_W, p.yDer, PALETA_W, PALETA_H);
+    g.fillStyle = '#ffffff';
+    g.beginPath();
+    g.arc(p.bx + BOLA / 2, p.by + BOLA / 2, BOLA / 2, 0, Math.PI * 2);
+    g.fill();
+  }
+  base();
+  const cx = WL / 2, cy = HL / 2;
   if (p.estado === 'inicio') {
-    texto('PONG', ANCHO / 2, ALTO / 2 - 60, 60, '#ffffff', true);
-    texto('Toca para empezar', ANCHO / 2, ALTO / 2 + 10, 22, '#ffffff');
-    texto(p.dos ? 'Cada jugador arrastra el dedo en su mitad' : 'Arrastra el dedo arriba y abajo',
-      ANCHO / 2, ALTO / 2 + 50, 15, '#8899aa');
+    texto('PONG', cx, cy - 60, 60, '#ffffff', true);
+    texto('Toca para empezar', cx, cy + 10, 22, '#ffffff');
+    texto(p.dos ? 'Cada jugador arrastra el dedo en su mitad' : (vertical ? 'Arrastra el dedo a los lados' : 'Arrastra el dedo arriba y abajo'),
+      cx, cy + 50, 15, '#8899aa');
     return;
   }
-  g.fillStyle = AZUL;
-  g.fillRect(20, p.yIzq, PALETA_W, PALETA_H);
-  g.fillStyle = NARANJA;
-  g.fillRect(ANCHO - 20 - PALETA_W, p.yDer, PALETA_W, PALETA_H);
-  g.fillStyle = '#ffffff';
-  g.beginPath();
-  g.arc(p.bx + BOLA / 2, p.by + BOLA / 2, BOLA / 2, 0, Math.PI * 2);
-  g.fill();
-  texto(String(p.pIzq), ANCHO / 2 - 60, 40, 36, AZUL, true);
-  texto(String(p.pDer), ANCHO / 2 + 60, 40, 36, NARANJA, true);
-  texto(p.dos ? 'JUGADOR 1' : 'TÚ', 90, ALTO - 15, 12, AZUL);
-  texto(p.dos ? 'JUGADOR 2' : 'COMPUTADOR', ANCHO - 90, ALTO - 15, 12, NARANJA);
-  if (!p.dos) texto(`Dificultad: ${DIFICULTAD[p.nivel][0]}`, ANCHO / 2, ALTO - 15, 11, '#8899aa');
+  const yo = p.dos ? 'JUGADOR 1' : 'TÚ', rival = p.dos ? 'JUGADOR 2' : 'COMPUTADOR';
+  const nivel = p.dos ? '' : `Dificultad: ${DIFICULTAD[p.nivel][0]}`;
+  if (vertical) { // tu lado abajo, el rival arriba; el marcador junto a la línea central
+    texto(String(p.pIzq), WL - 40, cy + 45, 36, AZUL, true);
+    texto(String(p.pDer), WL - 40, cy - 45, 36, NARANJA, true, p.dos);
+    texto(yo, cx, HL - 8, 12, AZUL);
+    texto(rival, cx, 10, 12, NARANJA, false, p.dos);
+    if (nivel) texto(nivel, 70, cy + 18, 10, '#8899aa');
+  } else {
+    texto(String(p.pIzq), cx - 60, 40, 36, AZUL, true);
+    texto(String(p.pDer), cx + 60, 40, 36, NARANJA, true);
+    texto(yo, 90, HL - 15, 12, AZUL);
+    texto(rival, WL - 90, HL - 15, 12, NARANJA);
+    if (nivel) texto(nivel, cx, HL - 15, 11, '#8899aa');
+  }
 
   p.tAyuda -= dt;
   if (p.tAyuda > 0 && p.dos && !p.fin) {
-    texto('← arrastra aquí', ANCHO / 4, ALTO / 2, 16, '#4fc3f799');
-    texto('arrastra aquí →', ANCHO * 3 / 4, ALTO / 2, 16, '#ff704399');
+    if (vertical) {
+      texto('arrastra aquí', cx, HL * 0.75, 16, '#4fc3f799');
+      texto('arrastra aquí', cx, HL * 0.25, 16, '#ff704399', false, true);
+    } else {
+      texto('← arrastra aquí', WL / 4, cy, 16, '#4fc3f799');
+      texto('arrastra aquí →', WL * 3 / 4, cy, 16, '#ff704399');
+    }
   }
   if (p.fin) {
     const gano = p.pIzq > p.pDer;
     const titulo = p.dos ? (gano ? '¡GANA JUGADOR 1!' : '¡GANA JUGADOR 2!') : (gano ? '¡GANASTE!' : 'GANÓ EL COMPUTADOR');
     g.fillStyle = 'rgba(5, 10, 16, 0.6)';
-    g.fillRect(0, ALTO / 2 - 60, ANCHO, 120);
-    texto(titulo, ANCHO / 2, ALTO / 2 - 15, 36, gano || p.dos ? '#a5d6a7' : '#ef9a9a', true);
-    texto('Toca para jugar de nuevo', ANCHO / 2, ALTO / 2 + 30, 16, '#ffffff');
+    g.fillRect(0, cy - 60, WL, 120);
+    texto(titulo, cx, cy - 15, vertical ? 26 : 36, gano || p.dos ? '#a5d6a7' : '#ef9a9a', true);
+    texto('Toca para jugar de nuevo', cx, cy + 30, 16, '#ffffff');
   } else if (p.pausa) {
-    texto('PAUSA', ANCHO / 2, ALTO / 2, 36, '#ffffff', true);
+    texto('PAUSA', cx, cy, 36, '#ffffff', true);
   }
 }
 
-bucle((dt) => { paso(dt); dibujar(dt); });
+// mando: Start o A empiezan; Start pausa; el movimiento se lee en cada paso del juego
+let mandos = [];
+function leerMandos() {
+  mandos = Mandos.leer();
+  for (const m of mandos) {
+    if (p.estado === 'inicio') { if (m.recien.a || m.recien.start) empezar(); }
+    else if (p.fin) { if (m.recien.a || m.recien.start) reiniciar(); }
+    else if (m.recien.start) alternarPausa();
+  }
+  if (!p.dos) mandos = mandos.slice(0, 1);
+}
+
+bucle((dt) => { leerMandos(); paso(dt); dibujar(dt); });
 window.juego = { p, reiniciar, objetivo, teclas, Sonido };
 </script>
 </body>

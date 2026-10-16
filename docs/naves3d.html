@@ -6,6 +6,11 @@
 <meta name="theme-color" content="#03040c">
 <title>Naves 3D</title>
 <link rel="stylesheet" href="estilo.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="iconos/icono-192.png">
+<link rel="apple-touch-icon" href="iconos/icono-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 <body class="juego">
 <header class="barra">
@@ -27,7 +32,7 @@
     <div class="centro info" id="info"></div>
   </div>
 </div>
-<p class="ayuda">J1: A / D + W o Espacio · J2: ← → + ↑ o Enter (en Tú vs PC también flechas) · J cambiar modo · 1 / 2 / 3 dificultad · P pausa · R reiniciar · M sonido</p>
+<p class="ayuda">J1: A / D + W o Espacio · J2: ← → + ↑ o Enter (en Tú vs PC también flechas) · J cambiar modo · 1 / 2 / 3 dificultad · P pausa · R reiniciar · M sonido · Con mando: palanca o cruceta, A o RT dispara, Start pausa</p>
 
 <script src="comun.js"></script>
 <script type="module">
@@ -269,12 +274,14 @@ function tocaDisparar(i) {
   return false;
 }
 
-function moverHumano(i, [izq, der, disp], dt) {
+function moverHumano(i, [izq, der, disp], dt, m) {
   if (j.vida[i] <= 0) return;
-  const direccion = (der.some((k) => teclas.has(k)) ? 1 : 0) - (izq.some((k) => teclas.has(k)) ? 1 : 0);
+  let direccion = (der.some((k) => teclas.has(k)) ? 1 : 0) - (izq.some((k) => teclas.has(k)) ? 1 : 0);
+  if (m && !direccion) direccion = m.ejeX || (m.ahora.der ? 1 : m.ahora.izq ? -1 : 0); // mando: palanca o cruceta
   moverNave(i, direccion, VEL_NAVE, dt);
   j.cd[i] = Math.max(0, j.cd[i] - dt);
-  if (j.cd[i] === 0 && (disp.some((k) => teclas.has(k)) || tocaDisparar(i))) {
+  const mandoDispara = m && (m.ahora.a || m.ahora.rt || m.ahora.b);
+  if (j.cd[i] === 0 && (disp.some((k) => teclas.has(k)) || tocaDisparar(i) || mandoDispara)) {
     disparar(i);
     j.cd[i] = ENFRIAMIENTO;
   }
@@ -541,14 +548,21 @@ document.addEventListener('visibilitychange', () => {
 reiniciar();
 naves.forEach((n, i) => { n.visible = i < 2; });
 bucle((dt) => {
+  // mandos: el 1 maneja al jugador 1 y el 2 al jugador 2; Start o A empiezan, Start pausa
+  const mandos = Mandos.leer();
+  for (const m of mandos) {
+    if (j.estado === 'inicio') { if (m.recien.a || m.recien.start) empezar(); }
+    else if (j.fin) { if (m.recien.a || m.recien.start) reiniciar(); }
+    else if (m.recien.start) alternarPausa();
+  }
   if (!j.pausa) {
     if (j.estado === 'jugando' && !j.fin) {
       j.tAyuda -= dt;
       if (j.modo === UNO) {
-        moverHumano(0, TECLAS_SOLO, dt);
+        moverHumano(0, TECLAS_SOLO, dt, mandos[0]);
       } else {
-        moverHumano(0, TECLAS_J1, dt);
-        moverHumano(j.modo === EQUIPO ? 2 : 1, TECLAS_J2, dt);
+        moverHumano(0, TECLAS_J1, dt, mandos[0]);
+        moverHumano(j.modo === EQUIPO ? 2 : 1, TECLAS_J2, dt, mandos[1]);
       }
       if (j.modo !== DUELO) moverIA(dt);
       moverBalas(dt);

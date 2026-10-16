@@ -16,7 +16,10 @@ Están en la carpeta [`docs/`](docs/) y no necesitan instalar nada: se abren en 
 | **Plataformas 3D** | palanca en pantalla para moverse (a fondo corre) y botón para saltar | 1 jugador, con música |
 | **Turbo Ruta** | botones de dirección, acelerar, freno y nitro | carreras de 4 vueltas en 7 pistas (Valle Verde, Desierto, Montaña, Ciudad, Playa, Otoño y Volcán) contra 10 rivales; garaje con 5 modelos de auto (cada uno maneja distinto) y 14 colores; 2 jugadores en pantalla dividida (en tablet, la mitad de arriba va girada para quien está enfrente) |
 
-En el computador se juegan con el teclado (la ayuda aparece bajo cada juego).
+En el computador se juegan con el teclado (la ayuda aparece bajo cada juego), y en cualquier aparato
+también con un mando Bluetooth o USB. El sitio se instala como app ("Agregar a pantalla de inicio") y,
+después de abrirlo una vez con internet, funciona sin conexión (`docs/sw.js` guarda los archivos).
+Con el teléfono vertical, Pong, Naves y Turbo Ruta reacomodan su cancha o su vista.
 Todo el sonido se sintetiza en el navegador; no hay archivos de audio.
 Los juegos 3D usan [three.js](https://threejs.org), que se carga desde internet al abrirlos.
 

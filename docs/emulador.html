@@ -6,6 +6,11 @@
 <meta name="theme-color" content="#101624">
 <title>Emulador</title>
 <link rel="stylesheet" href="estilo.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="iconos/icono-192.png">
+<link rel="apple-touch-icon" href="iconos/icono-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <style>
   /* la pantalla de elegir juego sí necesita poder tocarse y seleccionarse con normalidad */
   .elegir {
@@ -157,5 +162,6 @@ elegir.addEventListener('drop', (e) => {
 // el emulador no se puede reiniciar con otro juego en la misma página: se recarga
 cambiar.addEventListener('click', () => location.reload());
 </script>
+<script src="comun.js"></script>
 </body>
 </html>

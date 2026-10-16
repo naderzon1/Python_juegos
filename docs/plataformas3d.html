@@ -6,6 +6,11 @@
 <meta name="theme-color" content="#0d1b2a">
 <title>Plataformas 3D</title>
 <link rel="stylesheet" href="estilo.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="iconos/icono-192.png">
+<link rel="apple-touch-icon" href="iconos/icono-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 </head>
 <body class="juego">
 <header class="barra">
@@ -25,7 +30,7 @@
 </div>
 <div class="controles izq"><div class="joystick" id="joystick" aria-label="Palanca para moverse"><div class="palanca" id="palanca"></div></div></div>
 <div class="controles der"><button class="redondo" id="t-saltar">SALTAR</button></div>
-<p class="ayuda">A / D avanzar · W / S profundidad · Espacio saltar (mantén para más alto) · Shift correr · M sonido · P pausa · R reiniciar</p>
+<p class="ayuda">A / D avanzar · W / S profundidad · Espacio saltar (mantén para más alto) · Shift correr · M sonido · P pausa · R reiniciar · Con mando: palanca o cruceta, A saltar, B correr, Start pausa</p>
 
 <script src="comun.js"></script>
 <script type="module">
@@ -405,6 +410,16 @@ function moverHeroe(dt) {
     vel = fuerza > 0.92 ? VEL_CORRER : VEL_ANDAR;
     if (fuerza > 0.92) { dx /= fuerza; dz /= fuerza; }
   }
+  if (mando) { // mando: palanca analógica o cruceta; B o X para correr
+    const mx = mando.ejeX || ((mando.ahora.der ? 1 : 0) - (mando.ahora.izq ? 1 : 0));
+    const mz = -mando.ejeY || ((mando.ahora.arriba ? 1 : 0) - (mando.ahora.abajo ? 1 : 0));
+    const largo = Math.hypot(mx, mz);
+    if (largo > 0) {
+      dx = mx / Math.max(1, largo);
+      dz = mz / Math.max(1, largo);
+      vel = mando.ahora.b || mando.ahora.x || largo > 0.95 ? VEL_CORRER : VEL_ANDAR;
+    }
+  }
   const acel = (j.enSuelo ? 60 : 35) * dt;
   j.vx = acercar(j.vx, dx * vel, acel);
   j.vz = acercar(j.vz, dz * vel * 0.8, acel);
@@ -416,7 +431,7 @@ function moverHeroe(dt) {
     j.tPedido = j.tSuelo = 0;
     Sonido.tocar('salto');
   }
-  if (j.vy > 5 && !teclas.has(' ') && !saltoTactil) j.vy = 5; // salto corto si se suelta
+  if (j.vy > 5 && !teclas.has(' ') && !saltoTactil && !(mando && mando.ahora.a)) j.vy = 5; // salto corto si se suelta
   j.vy = Math.max(j.vy - GRAVEDAD * dt, -22);
 
   // se resuelve un eje cada vez: así el héroe resbala por las paredes en vez de atascarse
@@ -679,8 +694,21 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // --- bucle --------------------------------------------------------------------------
+// mando: A salta (mantenlo para saltar más alto), Start pausa; A o Start empiezan y vuelven a jugar
+let mando = null;
+function leerMando() {
+  mando = Mandos.leer()[0] || null;
+  if (!mando) return;
+  const { recien } = mando;
+  if (j.estado === 'inicio') { if (recien.a || recien.start) empezar(); return; }
+  if (j.estado !== 'jugando') { if (recien.a || recien.start) reiniciar(); return; }
+  if (recien.start) alternarPausa();
+  if (recien.a) pedirSalto();
+}
+
 reiniciar('inicio');
 bucle((dtReal) => {
+  leerMando();
   const dt = Math.min(dtReal, 1 / 20);
   if (!j.pausa) {
     moverPlataformas(dt);
