@@ -1,0 +1,29 @@
+{
+  "start_ship": "vanguard",
+  "ships": {
+    "vanguard": {
+      "name": "Vanguard", "description": "Caza equilibrado. Buena maniobrabilidad y escudos fiables.",
+      "cost": 0, "requires_galaxies": 1,
+      "hull": 130, "shield": 90, "shield_regen": 14, "shield_delay": 3.0,
+      "energy": 100, "energy_regen": 24, "max_speed": 72, "boost_mult": 1.9, "boost_cost": 22,
+      "accel": 2.4, "turn_rate": 95, "roll_rate": 160, "missile_capacity": 8, "component_slots": 2, "radius": 5,
+      "model": {"hull": "player_vanguard", "primary": [0.72, 0.76, 0.82], "secondary": [0.12, 0.42, 0.75], "glow": [0.35, 0.8, 1.0]}
+    },
+    "raptor": {
+      "name": "Raptor", "description": "Interceptor ligero: el más rápido y ágil, pero frágil.",
+      "cost": 2600, "requires_galaxies": 2,
+      "hull": 100, "shield": 80, "shield_regen": 18, "shield_delay": 2.5,
+      "energy": 115, "energy_regen": 28, "max_speed": 88, "boost_mult": 2.1, "boost_cost": 20,
+      "accel": 3.0, "turn_rate": 120, "roll_rate": 200, "missile_capacity": 6, "component_slots": 2, "radius": 4.5,
+      "model": {"hull": "player_raptor", "primary": [0.85, 0.85, 0.82], "secondary": [0.8, 0.25, 0.15], "glow": [1.0, 0.6, 0.25]}
+    },
+    "bastion": {
+      "name": "Bastion", "description": "Caza pesado con blindaje y escudos superiores. Más lento.",
+      "cost": 6200, "requires_galaxies": 3,
+      "hull": 230, "shield": 160, "shield_regen": 16, "shield_delay": 3.5,
+      "energy": 130, "energy_regen": 26, "max_speed": 60, "boost_mult": 1.75, "boost_cost": 24,
+      "accel": 2.0, "turn_rate": 72, "roll_rate": 120, "missile_capacity": 12, "component_slots": 3, "radius": 6.5,
+      "model": {"hull": "player_bastion", "primary": [0.4, 0.43, 0.4], "secondary": [0.75, 0.62, 0.2], "glow": [0.4, 1.0, 0.7]}
+    }
+  }
+}

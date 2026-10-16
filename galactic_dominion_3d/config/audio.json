@@ -1,0 +1,9 @@
+{
+  "master": 0.8,
+  "music": 0.55,
+  "sfx": 0.8,
+  "sample_rate": 22050,
+  "max_hearing_distance": 1600,
+  "voices_per_sound": 4,
+  "music_crossfade": 2.0
+}

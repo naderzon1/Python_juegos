@@ -1,0 +1,28 @@
+{
+  "material_tiers": [[1, "alloy"], [4, "crystal"], [7, "iron_core"], [9, "alien_tech"], [10, "void_essence"]],
+  "tech_gates": {"4": 2, "7": 3, "9": 4, "10": 5},
+  "upgrades": {
+    "firepower": {"name": "Potencia de fuego", "max_level": 10, "base_cost": 220, "cost_growth": 1.42, "material_base": 3,
+                  "effects": [{"stat": "damage_mult", "per_level": 0.08}]},
+    "speed": {"name": "Velocidad", "max_level": 10, "base_cost": 160, "cost_growth": 1.4, "material_base": 2,
+              "effects": [{"stat": "max_speed", "per_level": 0.04, "mode": "percent"}]},
+    "acceleration": {"name": "Aceleración", "max_level": 10, "base_cost": 140, "cost_growth": 1.38, "material_base": 2,
+                     "effects": [{"stat": "accel", "per_level": 0.07, "mode": "percent"}]},
+    "maneuverability": {"name": "Maniobrabilidad", "max_level": 10, "base_cost": 170, "cost_growth": 1.4, "material_base": 2,
+                        "effects": [{"stat": "turn_rate", "per_level": 0.05, "mode": "percent"}, {"stat": "roll_rate", "per_level": 0.05, "mode": "percent"}]},
+    "shields": {"name": "Escudos", "max_level": 10, "base_cost": 200, "cost_growth": 1.42, "material_base": 3,
+                "effects": [{"stat": "max_shield", "per_level": 0.12, "mode": "percent"}, {"stat": "shield_regen", "per_level": 0.06, "mode": "percent"}]},
+    "hull": {"name": "Resistencia del casco", "max_level": 10, "base_cost": 200, "cost_growth": 1.42, "material_base": 3,
+             "effects": [{"stat": "max_hull", "per_level": 0.12, "mode": "percent"}]},
+    "energy": {"name": "Capacidad energética", "max_level": 10, "base_cost": 180, "cost_growth": 1.4, "material_base": 2,
+               "effects": [{"stat": "max_energy", "per_level": 0.1, "mode": "percent"}, {"stat": "energy_regen", "per_level": 0.07, "mode": "percent"}]},
+    "missiles": {"name": "Capacidad de misiles", "max_level": 8, "base_cost": 150, "cost_growth": 1.38, "material_base": 2,
+                 "effects": [{"stat": "missile_capacity", "per_level": 2}]},
+    "targeting": {"name": "Sistemas de apuntado", "max_level": 8, "base_cost": 210, "cost_growth": 1.45, "material_base": 3,
+                  "effects": [{"stat": "crit_bonus", "per_level": 0.015}, {"stat": "lock_range", "per_level": 0.1, "mode": "percent"}, {"stat": "lock_time", "per_level": -0.07, "mode": "percent"}]},
+    "engines": {"name": "Motores", "max_level": 8, "base_cost": 190, "cost_growth": 1.42, "material_base": 2,
+                "effects": [{"stat": "boost_mult", "per_level": 0.06, "mode": "percent"}, {"stat": "boost_cost", "per_level": -0.06, "mode": "percent"}]},
+    "drones": {"name": "Drones auxiliares", "max_level": 6, "base_cost": 260, "cost_growth": 1.5, "material_base": 3,
+               "effects": [{"stat": "drone_damage_mult", "per_level": 0.15}, {"stat": "drone_count", "per_level": 0.34}]}
+  }
+}

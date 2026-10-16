@@ -1,0 +1,31 @@
+{
+  "mouse_sensitivity": 1.0,
+  "invert_y": false,
+  "bindings": {
+    "thrust_forward": ["w"],
+    "thrust_back": ["s"],
+    "strafe_left": ["a"],
+    "strafe_right": ["d"],
+    "roll_left": ["q"],
+    "roll_right": ["e"],
+    "boost": ["shift"],
+    "evade": ["space"],
+    "fire_primary": ["mouse1"],
+    "fire_secondary": ["mouse3"],
+    "fire_special": ["f"],
+    "target_next": ["tab"],
+    "target_nearest": ["t"],
+    "weapon_next": ["r"],
+    "pause": ["escape"],
+    "toggle_stats": ["f3"]
+  },
+  "action_names": {
+    "thrust_forward": "Acelerar", "thrust_back": "Frenar / retroceder", "strafe_left": "Desplazar izquierda",
+    "strafe_right": "Desplazar derecha", "roll_left": "Girar izquierda (alabeo)", "roll_right": "Girar derecha (alabeo)",
+    "boost": "Impulso", "evade": "Maniobra evasiva", "fire_primary": "Disparo principal",
+    "fire_secondary": "Arma secundaria", "fire_special": "Arma especial", "target_next": "Siguiente objetivo",
+    "target_nearest": "Objetivo más cercano", "weapon_next": "Cambiar arma principal", "pause": "Pausa",
+    "toggle_stats": "Estadísticas de rendimiento"
+  },
+  "gamepad": {"enabled": true, "deadzone": 0.18, "look_speed": 1.0}
+}

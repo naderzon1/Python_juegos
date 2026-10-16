@@ -60,3 +60,11 @@ python -m venv .venv
 pip install pygame ursina tensorflow matplotlib pillow
 python bloques.py
 ```
+
+## GALACTIC DOMINION 3D
+
+[`galactic_dominion_3d/`](galactic_dominion_3d/) es un proyecto aparte, más grande: un arcade espacial 3D con
+progresión RPG hecho con Panda3D. Tiene cinco galaxias, jefes con fases, ocho armas, taller de mejoras,
+evolución de la nave (Mk I–V) y guardado de partidas. Usa su propio entorno virtual; en Windows basta con
+ejecutar `galactic_dominion_3d\jugar.bat`. Las instrucciones completas están en su
+[README](galactic_dominion_3d/README.md).

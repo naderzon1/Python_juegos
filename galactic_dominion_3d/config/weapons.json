@@ -1,0 +1,127 @@
+{
+  "crit_multiplier": 2.0,
+  "weapons": {
+    "energy_cannon": {
+      "name": "Cañón de energía", "slot": "primary", "kind": "projectile", "player_usable": true,
+      "damage": 14, "fire_rate": 7.5, "range": 1500, "projectile_speed": 950, "energy_cost": 2.2,
+      "cooldown": 0, "crit_chance": 0.05, "spread_deg": 0.5, "projectiles": 1,
+      "shield_mult": 1.25, "hull_mult": 0.9, "explosion_radius": 0,
+      "tech_level": 1, "rarity": "common", "color": [0.35, 0.85, 1.0], "size": 1.0,
+      "sound": "shot_energy", "unlock": {"credits": 0, "blueprint": false},
+      "description": "Disparo rápido y fiable. Muy eficaz contra escudos."
+    },
+    "precision_laser": {
+      "name": "Láser de precisión", "slot": "primary", "kind": "beam", "player_usable": true,
+      "damage": 30, "fire_rate": 2.6, "range": 1900, "projectile_speed": 0, "energy_cost": 6.5,
+      "cooldown": 0, "crit_chance": 0.25, "spread_deg": 0, "projectiles": 1,
+      "shield_mult": 1.0, "hull_mult": 1.1, "explosion_radius": 0,
+      "tech_level": 1, "rarity": "uncommon", "color": [1.0, 0.25, 0.3], "size": 1.0,
+      "sound": "shot_laser", "unlock": {"credits": 700, "blueprint": true},
+      "description": "Impacto instantáneo de largo alcance y alta probabilidad crítica."
+    },
+    "plasma_cannon": {
+      "name": "Cañón de plasma", "slot": "primary", "kind": "projectile", "player_usable": true,
+      "damage": 46, "fire_rate": 2.0, "range": 1300, "projectile_speed": 560, "energy_cost": 7.5,
+      "cooldown": 0, "crit_chance": 0.08, "spread_deg": 0.3, "projectiles": 1,
+      "shield_mult": 0.8, "hull_mult": 1.45, "explosion_radius": 22,
+      "tech_level": 2, "rarity": "rare", "color": [0.75, 0.35, 1.0], "size": 2.4,
+      "sound": "shot_plasma", "unlock": {"credits": 1900, "blueprint": true},
+      "description": "Proyectiles pesados que estallan y destrozan cascos."
+    },
+    "scatter_gun": {
+      "name": "Cañón de dispersión", "slot": "primary", "kind": "projectile", "player_usable": true,
+      "damage": 7.5, "fire_rate": 2.4, "range": 650, "projectile_speed": 820, "energy_cost": 6.0,
+      "cooldown": 0, "crit_chance": 0.04, "spread_deg": 4.5, "projectiles": 8,
+      "shield_mult": 1.0, "hull_mult": 1.1, "explosion_radius": 0,
+      "tech_level": 2, "rarity": "uncommon", "color": [1.0, 0.8, 0.3], "size": 0.8,
+      "sound": "shot_scatter", "unlock": {"credits": 1300, "blueprint": true},
+      "description": "Ráfaga de corto alcance devastadora contra cazas rápidos."
+    },
+    "guided_missiles": {
+      "name": "Misiles guiados", "slot": "secondary", "kind": "missile", "player_usable": true,
+      "damage": 70, "fire_rate": 1.6, "range": 2300, "projectile_speed": 340, "energy_cost": 0,
+      "cooldown": 0, "crit_chance": 0.1, "spread_deg": 0, "projectiles": 1,
+      "shield_mult": 0.9, "hull_mult": 1.2, "explosion_radius": 26, "turn_rate": 150, "lifetime": 8,
+      "tech_level": 1, "rarity": "uncommon", "color": [1.0, 0.55, 0.2], "size": 1.0,
+      "sound": "missile_launch", "unlock": {"credits": 0, "blueprint": false},
+      "description": "Fija un objetivo (Tab) para guiarlos. Usan munición."
+    },
+    "combat_drones": {
+      "name": "Drones de combate", "slot": "secondary", "kind": "drones", "player_usable": true,
+      "damage": 9, "fire_rate": 3.0, "range": 900, "projectile_speed": 850, "energy_cost": 25,
+      "cooldown": 32, "crit_chance": 0.05, "spread_deg": 1.0, "projectiles": 1, "duration": 24,
+      "shield_mult": 1.0, "hull_mult": 1.0, "explosion_radius": 0,
+      "tech_level": 3, "rarity": "rare", "color": [0.4, 1.0, 0.6], "size": 0.8,
+      "sound": "drone_deploy", "unlock": {"credits": 3200, "blueprint": true},
+      "description": "Despliega drones autónomos que atacan al enemigo más cercano."
+    },
+    "area_pulse": {
+      "name": "Pulso de área", "slot": "special", "kind": "pulse", "player_usable": true,
+      "damage": 130, "fire_rate": 1.0, "range": 170, "projectile_speed": 0, "energy_cost": 40,
+      "cooldown": 16, "crit_chance": 0.0, "spread_deg": 0, "projectiles": 1,
+      "shield_mult": 1.3, "hull_mult": 1.0, "explosion_radius": 170,
+      "tech_level": 3, "rarity": "epic", "color": [0.4, 0.8, 1.0], "size": 1.0,
+      "sound": "pulse", "unlock": {"credits": 4600, "blueprint": true},
+      "description": "Onda de choque que daña a todos los enemigos cercanos."
+    },
+    "nova_torpedo": {
+      "name": "Torpedo nova", "slot": "special", "kind": "torpedo", "player_usable": true,
+      "damage": 460, "fire_rate": 1.0, "range": 2500, "projectile_speed": 260, "energy_cost": 50,
+      "cooldown": 24, "crit_chance": 0.15, "spread_deg": 0, "projectiles": 1, "turn_rate": 45, "lifetime": 10,
+      "shield_mult": 1.0, "hull_mult": 1.3, "explosion_radius": 95,
+      "tech_level": 4, "rarity": "legendary", "color": [1.0, 0.95, 0.5], "size": 3.5,
+      "sound": "torpedo", "unlock": {"credits": 9000, "blueprint": true},
+      "description": "Arma de altísimo daño. Ideal contra jefes y naves pesadas."
+    },
+
+    "enemy_blaster": {
+      "name": "Bláster enemigo", "slot": "primary", "kind": "projectile", "player_usable": false,
+      "damage": 6, "fire_rate": 2.2, "range": 950, "projectile_speed": 620, "energy_cost": 0,
+      "cooldown": 0, "crit_chance": 0.02, "spread_deg": 0.8, "projectiles": 1,
+      "shield_mult": 1.0, "hull_mult": 1.0, "explosion_radius": 0,
+      "tech_level": 1, "rarity": "common", "color": [1.0, 0.45, 0.2], "size": 1.0, "sound": "shot_enemy"
+    },
+    "enemy_heavy": {
+      "name": "Cañón pesado enemigo", "slot": "primary", "kind": "projectile", "player_usable": false,
+      "damage": 15, "fire_rate": 1.1, "range": 1100, "projectile_speed": 480, "energy_cost": 0,
+      "cooldown": 0, "crit_chance": 0.03, "spread_deg": 1.2, "projectiles": 1,
+      "shield_mult": 1.0, "hull_mult": 1.0, "explosion_radius": 0,
+      "tech_level": 1, "rarity": "common", "color": [1.0, 0.25, 0.15], "size": 2.0, "sound": "shot_heavy"
+    },
+    "enemy_missile": {
+      "name": "Misil enemigo", "slot": "secondary", "kind": "missile", "player_usable": false,
+      "damage": 20, "fire_rate": 0.25, "range": 1500, "projectile_speed": 250, "energy_cost": 0,
+      "cooldown": 0, "crit_chance": 0.0, "spread_deg": 0, "projectiles": 1, "turn_rate": 85, "lifetime": 7,
+      "shield_mult": 1.0, "hull_mult": 1.0, "explosion_radius": 12,
+      "tech_level": 1, "rarity": "common", "color": [1.0, 0.3, 0.3], "size": 1.0, "sound": "missile_launch"
+    },
+    "alien_spore": {
+      "name": "Espora ácida", "slot": "primary", "kind": "projectile", "player_usable": false,
+      "damage": 10, "fire_rate": 1.6, "range": 900, "projectile_speed": 420, "energy_cost": 0,
+      "cooldown": 0, "crit_chance": 0.02, "spread_deg": 1.5, "projectiles": 1,
+      "shield_mult": 0.7, "hull_mult": 1.5, "explosion_radius": 0,
+      "tech_level": 1, "rarity": "common", "color": [0.5, 1.0, 0.3], "size": 1.8, "sound": "shot_alien"
+    },
+    "void_lance": {
+      "name": "Lanza del vacío", "slot": "primary", "kind": "projectile", "player_usable": false,
+      "damage": 13, "fire_rate": 2.0, "range": 1200, "projectile_speed": 800, "energy_cost": 0,
+      "cooldown": 0, "crit_chance": 0.05, "spread_deg": 0.6, "projectiles": 1,
+      "shield_mult": 1.2, "hull_mult": 1.0, "explosion_radius": 0,
+      "tech_level": 1, "rarity": "common", "color": [0.85, 0.3, 1.0], "size": 1.4, "sound": "shot_void"
+    },
+    "boss_cannon": {
+      "name": "Batería del jefe", "slot": "primary", "kind": "projectile", "player_usable": false,
+      "damage": 12, "fire_rate": 1.0, "range": 2000, "projectile_speed": 430, "energy_cost": 0,
+      "cooldown": 0, "crit_chance": 0.0, "spread_deg": 0, "projectiles": 1,
+      "shield_mult": 1.0, "hull_mult": 1.0, "explosion_radius": 0,
+      "tech_level": 1, "rarity": "common", "color": [1.0, 0.35, 0.2], "size": 2.6, "sound": "shot_heavy"
+    },
+    "boss_beam": {
+      "name": "Rayo del jefe", "slot": "special", "kind": "beam", "player_usable": false,
+      "damage": 30, "fire_rate": 1.0, "range": 2600, "projectile_speed": 0, "energy_cost": 0,
+      "cooldown": 0, "crit_chance": 0.0, "spread_deg": 0, "projectiles": 1,
+      "shield_mult": 1.0, "hull_mult": 1.0, "explosion_radius": 0,
+      "tech_level": 1, "rarity": "common", "color": [1.0, 0.2, 0.5], "size": 1.0, "sound": "beam_charge"
+    }
+  }
+}

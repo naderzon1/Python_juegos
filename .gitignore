@@ -11,3 +11,6 @@ bloques_record.txt
 # juegos homebrew descargados para probar el emulador (no se publican en el repositorio)
 juegos_n64/
 juegos_snes/
+
+# paquete de entrega del juego 3D (se genera con tools/package.py)
+galactic_dominion_3d.zip

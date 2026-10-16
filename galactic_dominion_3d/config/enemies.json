@@ -1,0 +1,128 @@
+{
+  "elite": {"hull_mult": 2.4, "shield_mult": 2.4, "damage_mult": 1.5, "speed_mult": 1.15, "reward_mult": 3.0, "glow": [1.0, 0.85, 0.2]},
+  "enemies": {
+    "scout": {
+      "name": "Explorador", "hull": 40, "shield": 0, "shield_regen": 0, "radius": 5,
+      "speed": 78, "turn_rate": 115, "weapons": ["enemy_blaster"],
+      "ai": {"profile": "skirmisher", "detect_range": 1400, "preferred_range": 320, "aggression": 0.6,
+             "accuracy": 0.55, "evade_chance": 0.45, "retreat_hp": 0.0, "flank": true, "missiles": false},
+      "rewards": {"xp": 20, "credits": 14},
+      "model": {"hull": "dart", "scale": 0.9, "primary": [0.55, 0.57, 0.6], "secondary": [0.75, 0.3, 0.2], "glow": [1.0, 0.45, 0.2]}
+    },
+    "fighter": {
+      "name": "Caza de patrulla", "hull": 70, "shield": 30, "shield_regen": 6, "radius": 6,
+      "speed": 68, "turn_rate": 95, "weapons": ["enemy_blaster"],
+      "ai": {"profile": "fighter", "detect_range": 1500, "preferred_range": 380, "aggression": 0.7,
+             "accuracy": 0.62, "evade_chance": 0.35, "retreat_hp": 0.2, "flank": true, "missiles": false},
+      "rewards": {"xp": 34, "credits": 24},
+      "model": {"hull": "wedge", "scale": 1.0, "primary": [0.45, 0.47, 0.52], "secondary": [0.8, 0.35, 0.15], "glow": [1.0, 0.5, 0.15]}
+    },
+    "interceptor": {
+      "name": "Interceptor carmesí", "hull": 60, "shield": 45, "shield_regen": 10, "radius": 6,
+      "speed": 98, "turn_rate": 135, "weapons": ["enemy_blaster", "enemy_missile"],
+      "ai": {"profile": "skirmisher", "detect_range": 1700, "preferred_range": 300, "aggression": 0.85,
+             "accuracy": 0.6, "evade_chance": 0.6, "retreat_hp": 0.15, "flank": true, "missiles": true},
+      "rewards": {"xp": 46, "credits": 34},
+      "model": {"hull": "fork", "scale": 1.0, "primary": [0.5, 0.12, 0.15], "secondary": [0.9, 0.85, 0.85], "glow": [1.0, 0.2, 0.3]}
+    },
+    "gunship": {
+      "name": "Cañonera imperial", "hull": 230, "shield": 170, "shield_regen": 14, "radius": 11,
+      "speed": 46, "turn_rate": 48, "weapons": ["enemy_heavy", "enemy_missile"],
+      "ai": {"profile": "heavy", "detect_range": 1700, "preferred_range": 520, "aggression": 0.6,
+             "accuracy": 0.7, "evade_chance": 0.1, "retreat_hp": 0.25, "flank": false, "missiles": true},
+      "rewards": {"xp": 90, "credits": 70},
+      "model": {"hull": "heavy", "scale": 1.6, "primary": [0.35, 0.37, 0.4], "secondary": [0.75, 0.6, 0.2], "glow": [1.0, 0.65, 0.2]}
+    },
+    "sentinel_station": {
+      "name": "Estación militar", "hull": 900, "shield": 600, "shield_regen": 25, "radius": 38,
+      "speed": 0, "turn_rate": 60, "weapons": ["enemy_heavy", "enemy_missile"], "static": true,
+      "ai": {"profile": "turret", "detect_range": 1500, "preferred_range": 0, "aggression": 1.0,
+             "accuracy": 0.75, "evade_chance": 0.0, "retreat_hp": 0.0, "flank": false, "missiles": true},
+      "rewards": {"xp": 260, "credits": 220},
+      "model": {"hull": "station", "scale": 1.0, "primary": [0.4, 0.42, 0.46], "secondary": [0.7, 0.2, 0.15], "glow": [1.0, 0.3, 0.2]}
+    },
+    "alien_swarmer": {
+      "name": "Enjambre antiguo", "hull": 48, "shield": 0, "shield_regen": 0, "radius": 5,
+      "speed": 108, "turn_rate": 165, "weapons": ["alien_spore"],
+      "ai": {"profile": "swarm", "detect_range": 1800, "preferred_range": 220, "aggression": 0.95,
+             "accuracy": 0.55, "evade_chance": 0.3, "retreat_hp": 0.0, "flank": true, "missiles": false},
+      "rewards": {"xp": 42, "credits": 30},
+      "model": {"hull": "alien", "scale": 0.9, "primary": [0.18, 0.32, 0.22], "secondary": [0.4, 0.75, 0.3], "glow": [0.5, 1.0, 0.35]}
+    },
+    "alien_leviathan": {
+      "name": "Leviatán antiguo", "hull": 650, "shield": 220, "shield_regen": 12, "radius": 26,
+      "speed": 36, "turn_rate": 35, "weapons": ["alien_spore", "enemy_missile"],
+      "ai": {"profile": "heavy", "detect_range": 2000, "preferred_range": 600, "aggression": 0.7,
+             "accuracy": 0.7, "evade_chance": 0.0, "retreat_hp": 0.0, "flank": false, "missiles": true},
+      "rewards": {"xp": 320, "credits": 260},
+      "model": {"hull": "leviathan", "scale": 1.0, "primary": [0.2, 0.28, 0.24], "secondary": [0.55, 0.85, 0.4], "glow": [0.5, 1.0, 0.4]}
+    },
+    "void_wraith": {
+      "name": "Espectro del vacío", "hull": 150, "shield": 160, "shield_regen": 18, "radius": 6,
+      "speed": 112, "turn_rate": 145, "weapons": ["void_lance", "enemy_missile"],
+      "ai": {"profile": "skirmisher", "detect_range": 2000, "preferred_range": 340, "aggression": 0.9,
+             "accuracy": 0.72, "evade_chance": 0.5, "retreat_hp": 0.2, "flank": true, "missiles": true},
+      "rewards": {"xp": 120, "credits": 90},
+      "model": {"hull": "void", "scale": 1.0, "primary": [0.08, 0.06, 0.12], "secondary": [0.45, 0.2, 0.7], "glow": [0.85, 0.3, 1.0]}
+    }
+  },
+  "bosses": {
+    "orion_warden": {
+      "name": "Guardián de Orión", "hull": 1950, "shield": 700, "shield_regen": 0, "radius": 34,
+      "speed": 30, "weak_points": 3, "weak_point_hull": 260, "core_armor": 0.35,
+      "phases": [
+        {"threshold": 1.0, "patterns": ["spread", "missiles"], "interval": 3.2},
+        {"threshold": 0.55, "patterns": ["spread", "ring", "minions"], "interval": 2.6, "minions": {"scout": 3}},
+        {"threshold": 0.25, "patterns": ["ring", "missiles", "spread"], "interval": 2.0}
+      ],
+      "rewards": {"xp": 650, "credits": 1500, "blueprint": "scatter_gun", "item_rarity": "rare"},
+      "model": {"hull": "capital", "variant": "warden", "scale": 1.0, "primary": [0.42, 0.44, 0.5], "secondary": [0.8, 0.35, 0.15], "glow": [1.0, 0.5, 0.2]}
+    },
+    "crimson_matriarch": {
+      "name": "Matriarca Carmesí", "hull": 2600, "shield": 1000, "shield_regen": 0, "radius": 38,
+      "speed": 42, "weak_points": 4, "weak_point_hull": 300, "core_armor": 0.35,
+      "phases": [
+        {"threshold": 1.0, "patterns": ["missiles", "spread"], "interval": 2.8},
+        {"threshold": 0.6, "patterns": ["missiles", "minions", "ring"], "interval": 2.3, "minions": {"interceptor": 3}},
+        {"threshold": 0.3, "patterns": ["beam", "missiles", "ring"], "interval": 2.0}
+      ],
+      "rewards": {"xp": 900, "credits": 2300, "blueprint": "plasma_cannon", "item_rarity": "rare"},
+      "model": {"hull": "capital", "variant": "matriarch", "scale": 1.1, "primary": [0.45, 0.1, 0.14], "secondary": [0.9, 0.85, 0.85], "glow": [1.0, 0.2, 0.35]}
+    },
+    "iron_dreadnought": {
+      "name": "Acorazado de Hierro", "hull": 3000, "shield": 1400, "shield_regen": 0, "radius": 48,
+      "speed": 24, "weak_points": 5, "weak_point_hull": 380, "core_armor": 0.3,
+      "phases": [
+        {"threshold": 1.0, "patterns": ["spread", "missiles", "ring"], "interval": 2.6},
+        {"threshold": 0.6, "patterns": ["beam", "minions", "spread"], "interval": 2.2, "minions": {"gunship": 1, "fighter": 2}},
+        {"threshold": 0.3, "patterns": ["beam", "missiles", "ring", "spread"], "interval": 1.7}
+      ],
+      "rewards": {"xp": 1300, "credits": 3400, "blueprint": "combat_drones", "item_rarity": "epic"},
+      "model": {"hull": "capital", "variant": "dreadnought", "scale": 1.3, "primary": [0.33, 0.35, 0.38], "secondary": [0.75, 0.6, 0.2], "glow": [1.0, 0.6, 0.2]}
+    },
+    "ancient_colossus": {
+      "name": "Coloso de los Antiguos", "hull": 3100, "shield": 1300, "shield_regen": 0, "radius": 52,
+      "speed": 30, "weak_points": 5, "weak_point_hull": 450, "core_armor": 0.3,
+      "phases": [
+        {"threshold": 1.0, "patterns": ["ring", "spread"], "interval": 2.4},
+        {"threshold": 0.65, "patterns": ["beam", "minions", "ring"], "interval": 2.1, "minions": {"alien_swarmer": 5}},
+        {"threshold": 0.35, "patterns": ["beam", "ring", "missiles"], "interval": 1.8},
+        {"threshold": 0.15, "patterns": ["ring", "spread", "beam", "minions"], "interval": 1.4, "minions": {"alien_swarmer": 4}}
+      ],
+      "rewards": {"xp": 1800, "credits": 4600, "blueprint": "area_pulse", "item_rarity": "epic"},
+      "model": {"hull": "capital", "variant": "colossus", "scale": 1.4, "primary": [0.2, 0.3, 0.24], "secondary": [0.55, 0.85, 0.4], "glow": [0.5, 1.0, 0.4]}
+    },
+    "void_sovereign": {
+      "name": "Soberano del Vacío", "hull": 6200, "shield": 2400, "shield_regen": 0, "radius": 56,
+      "speed": 36, "weak_points": 6, "weak_point_hull": 520, "core_armor": 0.25,
+      "phases": [
+        {"threshold": 1.0, "patterns": ["spread", "missiles", "ring"], "interval": 2.2},
+        {"threshold": 0.7, "patterns": ["beam", "minions", "ring"], "interval": 1.9, "minions": {"void_wraith": 2}},
+        {"threshold": 0.45, "patterns": ["beam", "missiles", "ring", "spread"], "interval": 1.6},
+        {"threshold": 0.2, "patterns": ["ring", "beam", "minions", "missiles"], "interval": 1.2, "minions": {"void_wraith": 3}}
+      ],
+      "rewards": {"xp": 3000, "credits": 8000, "blueprint": null, "item_rarity": "legendary"},
+      "model": {"hull": "capital", "variant": "sovereign", "scale": 1.5, "primary": [0.07, 0.05, 0.1], "secondary": [0.45, 0.2, 0.7], "glow": [0.85, 0.3, 1.0]}
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "preset": "high",
+  "window": {"width": 1280, "height": 720, "fullscreen": false},
+  "fps_target": 60,
+  "vsync": false,
+  "show_fps": false,
+  "fov": 72,
+  "presets": {
+    "low":    {"msaa": 0, "bloom": false, "shadows": false, "star_count": 1500, "dust_count": 250, "particle_cap": 160,
+               "nebula_sprites": 10, "asteroid_mult": 0.5, "max_enemies": 10, "planet_texture": 256},
+    "medium": {"msaa": 2, "bloom": true,  "shadows": false, "star_count": 3000, "dust_count": 450, "particle_cap": 300,
+               "nebula_sprites": 18, "asteroid_mult": 0.8, "max_enemies": 14, "planet_texture": 512},
+    "high":   {"msaa": 4, "bloom": true,  "shadows": true,  "star_count": 5000, "dust_count": 700, "particle_cap": 480,
+               "nebula_sprites": 28, "asteroid_mult": 1.0, "max_enemies": 18, "planet_texture": 1024}
+  }
+}

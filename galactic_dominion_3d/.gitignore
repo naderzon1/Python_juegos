@@ -1,0 +1,15 @@
+# entorno virtual y cachés
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# partidas, ajustes y registros del jugador
+saves/*
+!saves/.gitkeep
+
+# sonidos y música que el juego genera solo la primera vez
+assets/audio/generated/
+
+# paquetes de entrega
+*.zip

@@ -1,0 +1,7 @@
+# GALACTIC DOMINION 3D — dependencias
+# Versiones probadas: Python 3.13.13 (64 bits, Windows 11), Panda3D 1.10.16, NumPy 2.5.4, pytest 9.1.1.
+# Panda3D 1.10.16 publica ruedas para Python 3.8–3.14; NumPy elige la versión compatible con tu Python.
+panda3d==1.10.16
+numpy>=1.26,<3
+# solo para las pruebas automáticas
+pytest>=8

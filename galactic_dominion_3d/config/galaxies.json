@@ -1,0 +1,238 @@
+{
+  "galaxies": [
+    {
+      "id": "orion", "name": "Frontera de Orión", "tier": 1,
+      "description": "Sistemas fronterizos patrullados por exploradores hostiles. Aquí aprenderás a pilotar.",
+      "difficulty": {"hp_mult": 1.0, "damage_mult": 1.0, "reward_mult": 1.0},
+      "material": "alloy", "music": "ambient_orion", "arena_radius": 1700,
+      "environment": {
+        "bg_color": [0.006, 0.008, 0.02], "star_tint": [0.85, 0.9, 1.0],
+        "nebula_colors": [[0.15, 0.3, 0.75], [0.35, 0.15, 0.6], [0.1, 0.45, 0.6]],
+        "sun": {"color": [1.0, 0.94, 0.85], "intensity": 1.4, "hpr": [35, -25, 0]},
+        "ambient": [0.09, 0.1, 0.14], "fog": null,
+        "planets": [
+          {"kind": "rocky", "radius": 2600, "distance": 15000, "h": 25, "p": -8, "palette": [[0.25, 0.32, 0.5], [0.4, 0.55, 0.65], [0.85, 0.85, 0.8]], "atmosphere": [0.4, 0.65, 1.0], "rings": false, "moons": 2},
+          {"kind": "gas", "radius": 1600, "distance": 19000, "h": -50, "p": 14, "palette": [[0.55, 0.42, 0.3], [0.85, 0.7, 0.5], [0.4, 0.3, 0.25]], "atmosphere": [1.0, 0.8, 0.55], "rings": true, "moons": 1}
+        ],
+        "asteroids": {"decor": 70, "hazard": 0}, "debris": 18, "station": true,
+        "hazards": []
+      },
+      "enemy_pool": ["scout", "fighter"],
+      "missions": [
+        {
+          "id": "orion_tutorial", "name": "Primer vuelo", "type": "destroy_count", "main": true, "requires": [], "tutorial": true,
+          "description": "Aprende los controles y derriba 5 exploradores.",
+          "params": {"count": 5},
+          "waves": [{"delay": 0, "enemies": {"scout": 3}}, {"delay": 2, "enemies": {"scout": 2}}], "reinforce_at": 1,
+          "rewards": {"xp": 120, "credits": 320, "materials": {"alloy": 8}}
+        },
+        {
+          "id": "orion_patrol", "name": "Patrulla de la frontera", "type": "destroy_fleet", "main": true, "requires": ["orion_tutorial"],
+          "description": "Destruye la flota de patrulla que bloquea la ruta comercial.",
+          "params": {},
+          "waves": [{"delay": 0, "enemies": {"scout": 3, "fighter": 1}}, {"delay": 3, "enemies": {"fighter": 3}}, {"delay": 3, "enemies": {"fighter": 2, "scout": 2}}], "reinforce_at": 1,
+          "rewards": {"xp": 200, "credits": 480, "materials": {"alloy": 12}, "blueprint": "precision_laser"}
+        },
+        {
+          "id": "orion_defend", "name": "Defensa de Orión-7", "type": "defend_station", "main": false, "requires": ["orion_tutorial"],
+          "description": "Protege la estación Orión-7 durante 75 segundos.",
+          "params": {"duration": 75, "station_hull": 1600},
+          "waves": [{"delay": 0, "enemies": {"scout": 3}}, {"delay": 4, "enemies": {"fighter": 2, "scout": 1}}], "reinforce_at": 1, "loop_waves": true,
+          "rewards": {"xp": 220, "credits": 560, "materials": {"alloy": 14}, "item_rarity": "uncommon"}
+        },
+        {
+          "id": "orion_boss", "name": "El Guardián", "type": "boss", "main": true, "requires": ["orion_patrol"],
+          "description": "Derrota al Guardián de Orión y abre el salto a la Nebulosa Carmesí.",
+          "params": {"boss": "orion_warden"},
+          "waves": [{"delay": 0, "enemies": {"fighter": 2}}], "reinforce_at": 0,
+          "rewards": {"xp": 300, "credits": 600, "materials": {"alloy": 20}}
+        }
+      ]
+    },
+    {
+      "id": "crimson", "name": "Nebulosa Carmesí", "tier": 2,
+      "description": "Una nebulosa densa que reduce la visibilidad. Campos de energía y enjambres de asteroides.",
+      "difficulty": {"hp_mult": 1.25, "damage_mult": 1.25, "reward_mult": 1.35},
+      "material": "crystal", "music": "ambient_crimson", "arena_radius": 1600,
+      "environment": {
+        "bg_color": [0.05, 0.008, 0.012], "star_tint": [1.0, 0.75, 0.75],
+        "nebula_colors": [[0.8, 0.12, 0.15], [0.6, 0.08, 0.3], [0.9, 0.35, 0.15]],
+        "sun": {"color": [1.0, 0.6, 0.5], "intensity": 1.2, "hpr": [-30, -35, 0]},
+        "ambient": [0.16, 0.06, 0.07], "fog": {"color": [0.16, 0.03, 0.05], "density": 0.00075},
+        "planets": [
+          {"kind": "lava", "radius": 2200, "distance": 13000, "h": -20, "p": 5, "palette": [[0.12, 0.05, 0.04], [0.35, 0.1, 0.06], [1.0, 0.45, 0.1]], "atmosphere": [1.0, 0.35, 0.2], "rings": false, "moons": 1}
+        ],
+        "asteroids": {"decor": 90, "hazard": 45}, "debris": 22, "station": false,
+        "hazards": [{"type": "energy_field", "count": 5, "radius": 140}]
+      },
+      "enemy_pool": ["interceptor", "fighter"],
+      "missions": [
+        {
+          "id": "crimson_recover", "name": "Cristales a la deriva", "type": "recover_materials", "main": true, "requires": [],
+          "description": "Recupera 6 contenedores de cristal entre los asteroides.",
+          "params": {"count": 6},
+          "waves": [{"delay": 0, "enemies": {"interceptor": 2, "fighter": 2}}, {"delay": 6, "enemies": {"interceptor": 3}}], "reinforce_at": 1, "loop_waves": true,
+          "rewards": {"xp": 300, "credits": 700, "materials": {"crystal": 14}}
+        },
+        {
+          "id": "crimson_ambush", "name": "Emboscada en la niebla", "type": "survive_time", "main": true, "requires": ["crimson_recover"],
+          "description": "Resiste 90 segundos los ataques coordinados.",
+          "params": {"duration": 90},
+          "waves": [{"delay": 0, "enemies": {"interceptor": 3}}, {"delay": 4, "enemies": {"interceptor": 2, "fighter": 2}}], "reinforce_at": 2, "loop_waves": true,
+          "rewards": {"xp": 340, "credits": 760, "materials": {"crystal": 16}, "item_rarity": "uncommon"}
+        },
+        {
+          "id": "crimson_elite", "name": "El As Carmesí", "type": "eliminate_elite", "main": false, "requires": ["crimson_recover"],
+          "description": "Elimina al piloto de élite y a su escolta.",
+          "params": {"enemy": "interceptor"},
+          "waves": [{"delay": 0, "enemies": {"interceptor": 2}, "elite": {"interceptor": 1}}, {"delay": 5, "enemies": {"fighter": 3}}], "reinforce_at": 1,
+          "rewards": {"xp": 380, "credits": 900, "materials": {"crystal": 18}, "item_rarity": "rare"}
+        },
+        {
+          "id": "crimson_boss", "name": "La Matriarca", "type": "boss", "main": true, "requires": ["crimson_ambush"],
+          "description": "Destruye a la Matriarca Carmesí.",
+          "params": {"boss": "crimson_matriarch"},
+          "waves": [{"delay": 0, "enemies": {"interceptor": 2}}], "reinforce_at": 0,
+          "rewards": {"xp": 400, "credits": 800, "materials": {"crystal": 24}}
+        }
+      ]
+    },
+    {
+      "id": "iron", "name": "Imperio de Hierro", "tier": 3,
+      "description": "Flotas organizadas, naves pesadas con escudos avanzados y estaciones militares.",
+      "difficulty": {"hp_mult": 1.55, "damage_mult": 1.45, "reward_mult": 1.8},
+      "material": "iron_core", "music": "ambient_iron", "arena_radius": 1900,
+      "environment": {
+        "bg_color": [0.012, 0.012, 0.014], "star_tint": [1.0, 0.92, 0.8],
+        "nebula_colors": [[0.6, 0.45, 0.2], [0.35, 0.3, 0.25], [0.7, 0.3, 0.1]],
+        "sun": {"color": [1.0, 0.85, 0.65], "intensity": 1.5, "hpr": [60, -20, 0]},
+        "ambient": [0.1, 0.09, 0.08], "fog": null,
+        "planets": [
+          {"kind": "rocky", "radius": 3000, "distance": 16000, "h": 10, "p": -12, "palette": [[0.3, 0.27, 0.24], [0.5, 0.45, 0.38], [0.75, 0.7, 0.6]], "atmosphere": [0.9, 0.75, 0.55], "rings": true, "moons": 3}
+        ],
+        "asteroids": {"decor": 50, "hazard": 0}, "debris": 45, "station": false,
+        "hazards": []
+      },
+      "enemy_pool": ["fighter", "gunship"],
+      "missions": [
+        {
+          "id": "iron_escort", "name": "Convoy de suministros", "type": "escort", "main": true, "requires": [],
+          "description": "Escolta al carguero aliado hasta el portal de salto.",
+          "params": {"distance": 1500, "speed": 24, "ally_hull": 1500},
+          "waves": [{"delay": 0, "enemies": {"fighter": 3}}, {"delay": 6, "enemies": {"gunship": 1, "fighter": 2}}, {"delay": 6, "enemies": {"fighter": 3}}], "reinforce_at": 1, "loop_waves": true,
+          "rewards": {"xp": 450, "credits": 1000, "materials": {"iron_core": 14}}
+        },
+        {
+          "id": "iron_stations", "name": "Golpe a la infraestructura", "type": "destroy_count", "main": true, "requires": ["iron_escort"],
+          "description": "Destruye las 2 estaciones militares imperiales.",
+          "params": {"count": 2, "enemy": "sentinel_station"},
+          "waves": [{"delay": 0, "enemies": {"sentinel_station": 2, "fighter": 2}}, {"delay": 8, "enemies": {"gunship": 1, "fighter": 2}}], "reinforce_at": 3, "loop_waves": true,
+          "rewards": {"xp": 520, "credits": 1200, "materials": {"iron_core": 18}, "item_rarity": "rare"}
+        },
+        {
+          "id": "iron_fleet", "name": "Flota acorazada", "type": "destroy_fleet", "main": false, "requires": ["iron_escort"],
+          "description": "Aniquila una flota completa de cañoneras.",
+          "params": {},
+          "waves": [{"delay": 0, "enemies": {"gunship": 2, "fighter": 2}}, {"delay": 5, "enemies": {"gunship": 2, "fighter": 3}}], "reinforce_at": 1,
+          "rewards": {"xp": 560, "credits": 1300, "materials": {"iron_core": 20}, "item_rarity": "rare"}
+        },
+        {
+          "id": "iron_boss", "name": "El Acorazado", "type": "boss", "main": true, "requires": ["iron_stations"],
+          "description": "Destruye el Acorazado de Hierro.",
+          "params": {"boss": "iron_dreadnought"},
+          "waves": [{"delay": 0, "enemies": {"fighter": 2}}], "reinforce_at": 0,
+          "rewards": {"xp": 500, "credits": 1000, "materials": {"iron_core": 26}}
+        }
+      ]
+    },
+    {
+      "id": "abyss", "name": "Abismo de los Antiguos", "tier": 4,
+      "description": "Ruinas alienígenas, anomalías hostiles y criaturas de tamaño colosal.",
+      "difficulty": {"hp_mult": 1.9, "damage_mult": 1.7, "reward_mult": 2.4},
+      "material": "alien_tech", "music": "ambient_abyss", "arena_radius": 1800,
+      "environment": {
+        "bg_color": [0.004, 0.02, 0.014], "star_tint": [0.7, 1.0, 0.8],
+        "nebula_colors": [[0.1, 0.6, 0.35], [0.05, 0.35, 0.45], [0.35, 0.65, 0.15]],
+        "sun": {"color": [0.7, 1.0, 0.85], "intensity": 1.1, "hpr": [-70, -30, 0]},
+        "ambient": [0.05, 0.12, 0.09], "fog": {"color": [0.01, 0.05, 0.035], "density": 0.0004},
+        "planets": [
+          {"kind": "ice", "radius": 2400, "distance": 14000, "h": 40, "p": 10, "palette": [[0.15, 0.35, 0.35], [0.4, 0.75, 0.7], [0.85, 1.0, 0.95]], "atmosphere": [0.4, 1.0, 0.75], "rings": true, "moons": 2}
+        ],
+        "asteroids": {"decor": 60, "hazard": 15}, "debris": 30, "station": false,
+        "hazards": [{"type": "anomaly", "count": 4, "radius": 110}]
+      },
+      "enemy_pool": ["alien_swarmer", "alien_leviathan"],
+      "missions": [
+        {
+          "id": "abyss_swarm", "name": "Despertar del enjambre", "type": "survive_time", "main": true, "requires": [],
+          "description": "Sobrevive 100 segundos al enjambre antiguo.",
+          "params": {"duration": 100},
+          "waves": [{"delay": 0, "enemies": {"alien_swarmer": 5}}, {"delay": 4, "enemies": {"alien_swarmer": 4}}], "reinforce_at": 3, "loop_waves": true,
+          "rewards": {"xp": 650, "credits": 1400, "materials": {"alien_tech": 14}}
+        },
+        {
+          "id": "abyss_leviathan", "name": "Caza del leviatán", "type": "eliminate_elite", "main": true, "requires": ["abyss_swarm"],
+          "description": "Elimina al leviatán de élite que custodia las ruinas.",
+          "params": {"enemy": "alien_leviathan"},
+          "waves": [{"delay": 0, "enemies": {"alien_swarmer": 4}, "elite": {"alien_leviathan": 1}}, {"delay": 6, "enemies": {"alien_swarmer": 4}}], "reinforce_at": 2, "loop_waves": true,
+          "rewards": {"xp": 720, "credits": 1600, "materials": {"alien_tech": 18}, "item_rarity": "epic"}
+        },
+        {
+          "id": "abyss_relics", "name": "Reliquias antiguas", "type": "recover_materials", "main": false, "requires": ["abyss_swarm"],
+          "description": "Recupera 7 reliquias tecnológicas de las ruinas.",
+          "params": {"count": 7},
+          "waves": [{"delay": 0, "enemies": {"alien_swarmer": 4}}, {"delay": 8, "enemies": {"alien_swarmer": 3}}], "reinforce_at": 2, "loop_waves": true,
+          "rewards": {"xp": 700, "credits": 1700, "materials": {"alien_tech": 22}, "item_rarity": "rare"}
+        },
+        {
+          "id": "abyss_boss", "name": "El Coloso", "type": "boss", "main": true, "requires": ["abyss_leviathan"],
+          "description": "Derrota al Coloso de los Antiguos.",
+          "params": {"boss": "ancient_colossus"},
+          "waves": [{"delay": 0, "enemies": {"alien_swarmer": 3}}], "reinforce_at": 0,
+          "rewards": {"xp": 600, "credits": 1300, "materials": {"alien_tech": 28}}
+        }
+      ]
+    },
+    {
+      "id": "void", "name": "Núcleo del Vacío", "tier": 5,
+      "description": "El corazón de la oscuridad. Élites del vacío, grietas gravitatorias y el Soberano.",
+      "difficulty": {"hp_mult": 2.3, "damage_mult": 2.0, "reward_mult": 3.0},
+      "material": "void_essence", "music": "ambient_void", "arena_radius": 2000,
+      "environment": {
+        "bg_color": [0.012, 0.0, 0.02], "star_tint": [0.85, 0.7, 1.0],
+        "nebula_colors": [[0.45, 0.1, 0.75], [0.15, 0.05, 0.4], [0.8, 0.2, 0.7]],
+        "sun": {"color": [0.85, 0.65, 1.0], "intensity": 1.0, "hpr": [120, -40, 0]},
+        "ambient": [0.08, 0.04, 0.12], "fog": null,
+        "planets": [
+          {"kind": "lava", "radius": 3400, "distance": 17000, "h": -10, "p": 18, "palette": [[0.05, 0.02, 0.08], [0.2, 0.06, 0.3], [0.85, 0.3, 1.0]], "atmosphere": [0.75, 0.3, 1.0], "rings": true, "moons": 0}
+        ],
+        "asteroids": {"decor": 40, "hazard": 10}, "debris": 50, "station": false,
+        "hazards": [{"type": "gravity_rift", "count": 3, "radius": 160}]
+      },
+      "enemy_pool": ["void_wraith", "gunship"],
+      "missions": [
+        {
+          "id": "void_wraiths", "name": "Legión de espectros", "type": "destroy_fleet", "main": true, "requires": [],
+          "description": "Destruye la legión de espectros del vacío.",
+          "params": {},
+          "waves": [{"delay": 0, "enemies": {"void_wraith": 3}}, {"delay": 4, "enemies": {"void_wraith": 2, "gunship": 1}}, {"delay": 4, "enemies": {"void_wraith": 3}, "elite": {"void_wraith": 1}}], "reinforce_at": 1,
+          "rewards": {"xp": 900, "credits": 2000, "materials": {"void_essence": 14}}
+        },
+        {
+          "id": "void_defend", "name": "Último bastión", "type": "defend_station", "main": true, "requires": ["void_wraiths"],
+          "description": "Defiende el último bastión de la alianza durante 90 segundos.",
+          "params": {"duration": 90, "station_hull": 4500},
+          "waves": [{"delay": 0, "enemies": {"void_wraith": 3}}, {"delay": 5, "enemies": {"void_wraith": 2, "gunship": 1}}], "reinforce_at": 2, "loop_waves": true,
+          "rewards": {"xp": 1000, "credits": 2400, "materials": {"void_essence": 18}, "blueprint": "nova_torpedo"}
+        },
+        {
+          "id": "void_boss", "name": "El Soberano del Vacío", "type": "boss", "main": true, "requires": ["void_defend"],
+          "description": "La batalla final. Destruye al Soberano del Vacío.",
+          "params": {"boss": "void_sovereign", "final": true},
+          "waves": [{"delay": 0, "enemies": {"void_wraith": 2}}], "reinforce_at": 0,
+          "rewards": {"xp": 1200, "credits": 3000, "materials": {"void_essence": 30}}
+        }
+      ]
+    }
+  ]
+}
