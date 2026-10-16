@@ -309,8 +309,9 @@ nave, economía, combate, colisiones, misiones, IA, guardado y síntesis de audi
 |---|---|
 | Menús: principal, ranuras, mapa, hangar (4 pestañas), configuración, pausa, resumen y derrota | Funcionan; capturas revisadas |
 | Campaña completa (19 misiones) | 14 completadas a la primera; 0 errores internos; entre 44 y 57 FPS |
-| Tras rebajar la vida de los jefes 2-5 y ajustar el Núcleo del Vacío | Espectros (133 s) y Último bastión (95 s) completadas |
-| Jefes atacados directamente con una nave Mk IV | Matriarca Carmesí derrotada en 111 s con sus 3 fases |
+| Tras ajustar el Núcleo del Vacío | Legión de espectros (133 s) y Último bastión (95 s) completadas |
+| Jefes atacados directamente con una nave Mk IV | Matriarca 111 s · Acorazado 181 s · Soberano 184 s · Coloso ≈ 230 s |
+| Nave en etapa Mk V (nivel 16) | Ráfagas triples y modelo Mk V en juego; patrulla completada en 27 s (42 s con Mk I) |
 | Derrota (casco a 1 punto) | Lleva a la pantalla de derrota; conserva la mitad de lo ganado |
 | Guardar y volver a cargar | Nivel, créditos, misiones, galaxias y mejoras recuperados sin avisos |
 

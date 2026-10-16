@@ -161,7 +161,10 @@ class Effects:
         self.add.emit(pos, Vec3(0, 0, 0), .1, 1.5, 3, (color[0] * 2, color[1] * 2, color[2] * 2, 1), (color[0], color[1], color[2], 0))
 
     def muzzle(self, pos, color, size: float = 1.0) -> None:
-        self.add.emit(pos, Vec3(0, 0, 0), .06, size * 1.2, size * 2.2, (color[0] * 2, color[1] * 2, color[2] * 2, 1),
+        # destello breve y contenido: con ráfagas múltiples no debe tapar la vista
+        size = min(size, 1.6)
+        self.add.emit(pos, Vec3(0, 0, 0), .05, size * 0.6, size * 1.1, (color[0] * 1.4, color[1] * 1.4,
+                                                                       color[2] * 1.4, 0.8),
                       (color[0], color[1], color[2], 0))
 
     def trail(self, pos, color, size: float = 1.0, life: float = .35) -> None:
