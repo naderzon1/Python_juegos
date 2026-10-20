@@ -14,3 +14,6 @@ juegos_snes/
 
 # paquete de entrega del juego 3D (se genera con tools/package.py)
 galactic_dominion_3d.zip
+
+# resultados del Estudio Generativo (ia_generativa)
+salida_ia/

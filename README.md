@@ -52,6 +52,7 @@ Para publicarlas con GitHub Pages: *Settings → Pages → Deploy from a branch 
 | `plataformas3d.py` | Aventura de plataformas 3D con sonido | `ursina` |
 | `mnist.py` | Red neuronal que reconoce dígitos escritos a mano | `tensorflow` |
 | `test_tensorflow.py` | Prueba de que TensorFlow quedó bien instalado | `tensorflow` |
+| `generador_ia.py` | Estudio Generativo: texto, imagen y sonido con IA local | solo Python |
 
 Instalación (Python 3.13; TensorFlow aún no existe para 3.14):
 
@@ -61,6 +62,41 @@ python -m venv .venv
 pip install pygame ursina tensorflow matplotlib pillow
 python bloques.py
 ```
+
+## Estudio Generativo: IA de texto, imagen y sonido
+
+[`ia_generativa/`](ia_generativa/) convierte una descripción ("un mar en calma al atardecer") en un
+**poema o relato**, una **imagen PNG** y una **pieza musical WAV** coherentes entre sí. Funciona sin
+internet y **sin instalar nada**: solo usa la biblioteca estándar de Python 3.9+.
+
+**En el teléfono** (Android: [Pydroid 3](https://play.google.com/store/apps/details?id=ru.iiec.pydroid3)
+o Termux; iPhone/iPad: Pyto o a-Shell): copia la carpeta del repositorio, abre `generador_ia.py` y
+ejecútalo. Se abre una interfaz en el navegador del mismo teléfono (`http://127.0.0.1:8000`). Si no se
+abre sola, escribe esa dirección en el navegador.
+
+**En el computador:**
+
+```bash
+python generador_ia.py                                  # interfaz web
+python generador_ia.py "bosque misterioso al amanecer"  # línea de comandos
+python -m ia_generativa "ciudad épica" --solo texto,imagen --modo relato --semilla 7
+python -m ia_generativa --web --red                     # abrirla desde otro aparato de tu Wi-Fi
+python -m ia_generativa "mar" --corpus mis_textos.txt   # entrenar el texto con tus propios escritos
+python -m unittest discover tests                       # pruebas
+```
+
+Los resultados se guardan en `salida_ia/`. La misma descripción con la misma semilla da siempre el
+mismo resultado.
+
+| Parte | Cómo genera | Tiempo aprox. (PC / teléfono) |
+|---|---|---|
+| Interpretación | Detecta escena (montaña, bosque, mar, desierto, ciudad, espacio), hora y ánimo; lo que falte lo elige la semilla | instantáneo |
+| Texto | Modelo de lenguaje de Markov (n-gramas) entrenado al momento; genera muchos candidatos y elige frases nuevas, en tema y con pocos saltos | < 0,1 s |
+| Imagen | Render procedural por capas: ruido fractal, perspectiva atmosférica, sol/luna, nubes, lluvia o niebla según el ánimo; PNG escrito a mano | ~1 s / ~3–8 s |
+| Sonido | Acordes por cadena de Markov, melodía con motivos, síntesis por tablas de onda, batería, ambiente (olas, viento, pájaros…) y reverb | ~2 s / ~6–15 s |
+
+Límite conocido: son modelos pequeños y explicables, no redes neuronales grandes. El texto es poético
+y a veces salta de idea a mitad de frase; las imágenes son paisajes estilizados, no fotos.
 
 ## GALACTIC DOMINION 3D
 
