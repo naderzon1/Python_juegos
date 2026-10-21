@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>Estudio Generativo</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23d9893a'/%3E%3Cpath d='M6 21c3-6 6-6 9 0s6 6 11-4' stroke='%23fff' stroke-width='3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+:root {
+  --bg: #f5f2ec;
+  --surface: #ffffff;
+  --surface-2: #efebe3;
+  --ink: #1c1d21;
+  --ink-2: #5d5f66;
+  --ink-3: #8a8c93;
+  --line: #e2ddd3;
+  --accent: #b9661c;
+  --accent-ink: #ffffff;
+  --accent-soft: #f6e4d1;
+  --ok: #2f7d5b;
+  --danger: #b3261e;
+  --shadow: 0 1px 2px rgba(30, 25, 15, .06), 0 8px 24px rgba(30, 25, 15, .06);
+  --radius: 18px;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1013;
+    --surface: #17191e;
+    --surface-2: #1f2228;
+    --ink: #eceae6;
+    --ink-2: #a9abb2;
+    --ink-3: #767a83;
+    --line: #2a2d34;
+    --accent: #e39a4f;
+    --accent-ink: #1a1206;
+    --accent-soft: #3a2a1a;
+    --ok: #5fc39a;
+    --danger: #ff8a80;
+    --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .25);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1013; --surface: #17191e; --surface-2: #1f2228; --ink: #eceae6; --ink-2: #a9abb2;
+  --ink-3: #767a83; --line: #2a2d34; --accent: #e39a4f; --accent-ink: #1a1206; --accent-soft: #3a2a1a;
+  --ok: #5fc39a; --danger: #ff8a80; --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.25);
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 var(--sans);
+  padding: env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+.wrap { max-width: 760px; margin: 0 auto; padding: 0 16px 48px; }
+
+/* Cabecera */
+header { display: flex; align-items: center; gap: 12px; padding: 20px 0 12px; }
+.logo { width: 38px; height: 38px; border-radius: 11px; background: var(--accent); display: grid; place-items: center; flex: none; }
+.marca h1 { font-size: 1.12rem; margin: 0; letter-spacing: -.01em; }
+.marca p { margin: 0; font-size: .82rem; color: var(--ink-2); }
+.pastilla {
+  margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: .75rem;
+  color: var(--ink-2); background: var(--surface); border: 1px solid var(--line); padding: 5px 10px; border-radius: 99px; white-space: nowrap;
+}
+.pastilla i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); display: block; }
+
+/* Tarjetas */
+.tarjeta { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.compositor { padding: 16px; margin-top: 8px; }
+label.titulo { display: block; font-weight: 600; font-size: .92rem; margin-bottom: 8px; }
+textarea {
+  width: 100%; min-height: 88px; resize: vertical; border: 1px solid var(--line); border-radius: 12px;
+  background: var(--bg); padding: 12px 14px; outline: none; line-height: 1.45; font-size: 1rem;
+}
+textarea:focus, select:focus, input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.ejemplos { display: flex; gap: 8px; overflow-x: auto; padding: 10px 0 2px; scrollbar-width: none; margin: 0 -16px; padding-left: 16px; padding-right: 16px; }
+.ejemplos::-webkit-scrollbar { display: none; }
+.chip {
+  flex: none; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink-2);
+  border-radius: 99px; padding: 6px 12px; font-size: .84rem; cursor: pointer; white-space: nowrap;
+}
+.chip:hover { color: var(--ink); border-color: var(--ink-3); }
+
+.opciones { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 14px; }
+.segmento { display: inline-flex; background: var(--surface-2); border-radius: 12px; padding: 3px; border: 1px solid var(--line); }
+.segmento label { position: relative; }
+.segmento input { position: absolute; opacity: 0; inset: 0; cursor: pointer; margin: 0; }
+.segmento span {
+  display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 9px;
+  font-size: .86rem; color: var(--ink-3); transition: background .15s, color .15s;
+}
+.segmento input:checked + span { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.segmento input:focus-visible + span { outline: 2px solid var(--accent); }
+.segmento svg { width: 15px; height: 15px; }
+select, .semilla input {
+  border: 1px solid var(--line); background: var(--surface-2); border-radius: 12px; padding: 8px 10px; font-size: .86rem; outline: none;
+}
+.semilla { display: inline-flex; align-items: center; gap: 6px; font-size: .84rem; color: var(--ink-2); }
+.semilla input { width: 120px; font-family: var(--mono); }
+
+.acciones { display: flex; gap: 10px; margin-top: 16px; }
+.btn {
+  border: 0; border-radius: 14px; padding: 13px 18px; font-weight: 600; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; transition: transform .08s, opacity .15s;
+}
+.btn:active { transform: scale(.98); }
+.btn[disabled] { opacity: .55; cursor: progress; }
+.btn.primario { background: var(--accent); color: var(--accent-ink); flex: 1; font-size: 1rem; }
+.btn.secundario { background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); }
+a.btn { text-decoration: none; }
+.btn.mini { padding: 7px 11px; font-size: .8rem; border-radius: 10px; font-weight: 500; }
+.btn svg { width: 17px; height: 17px; }
+
+/* Interpretación */
+.lectura { display: none; flex-wrap: wrap; gap: 8px; align-items: center; margin: 18px 2px 4px; font-size: .84rem; color: var(--ink-2); }
+.lectura.visible { display: flex; }
+.etiqueta { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 99px; padding: 5px 11px; }
+.etiqueta b { color: var(--ink); font-weight: 600; }
+.punto { width: 8px; height: 8px; border-radius: 50%; border: 2px solid var(--accent); }
+.punto.lleno { background: var(--accent); }
+.leyenda { color: var(--ink-3); font-size: .76rem; width: 100%; }
+
+/* Resultados */
+.resultados { display: grid; gap: 14px; margin-top: 12px; }
+.resultado { overflow: hidden; display: none; }
+.resultado.visible { display: block; animation: aparecer .35s ease both; }
+@keyframes aparecer { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.cab { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--line); font-size: .84rem; color: var(--ink-2); }
+.cab strong { color: var(--ink); font-weight: 600; }
+.cab .meta { margin-left: auto; font-family: var(--mono); font-size: .75rem; color: var(--ink-3); }
+.pie { display: flex; gap: 8px; align-items: center; padding: 10px 14px; border-top: 1px solid var(--line); flex-wrap: wrap; }
+.pie .info { font-size: .76rem; color: var(--ink-3); margin-right: auto; }
+
+.lienzo { aspect-ratio: 16 / 10; background: var(--surface-2); position: relative; }
+.lienzo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.cargando { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-3); font-size: .86rem; }
+.cargando::before {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(100deg, transparent 20%, color-mix(in srgb, var(--surface) 55%, transparent) 50%, transparent 80%);
+  background-size: 200% 100%; animation: brillo 1.4s linear infinite;
+}
+@keyframes brillo { from { background-position: 150% 0; } to { background-position: -50% 0; } }
+.cargando span { position: relative; display: inline-flex; align-items: center; gap: 8px; }
+.giro { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--line); border-top-color: var(--accent); animation: girar .8s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
+
+.texto { padding: 20px 20px 18px; min-height: 120px; position: relative; }
+.texto h2 { font-family: var(--serif); font-weight: 600; font-size: 1.45rem; line-height: 1.2; margin: 0 0 12px; letter-spacing: -.01em; }
+.texto .cuerpo { font-family: var(--serif); font-size: 1.06rem; line-height: 1.7; white-space: pre-wrap; color: var(--ink); }
+
+.reproductor { padding: 16px 14px; display: flex; gap: 14px; align-items: center; min-height: 104px; position: relative; }
+.play {
+  width: 54px; height: 54px; border-radius: 50%; border: 0; background: var(--accent); color: var(--accent-ink);
+  display: grid; place-items: center; cursor: pointer; flex: none;
+}
+.play svg { width: 22px; height: 22px; }
+.onda { flex: 1; min-width: 0; }
+.onda canvas { width: 100%; height: 56px; display: block; cursor: pointer; touch-action: none; }
+.tiempo { display: flex; justify-content: space-between; font-family: var(--mono); font-size: .72rem; color: var(--ink-3); margin-top: 4px; }
+
+/* Recientes y ayuda */
+h3 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); margin: 28px 2px 10px; }
+.recientes { display: flex; flex-wrap: wrap; gap: 8px; }
+details.ayuda { margin-top: 28px; padding: 4px 16px; }
+details.ayuda summary { cursor: pointer; padding: 12px 0; font-weight: 600; font-size: .92rem; list-style: none; display: flex; align-items: center; gap: 8px; }
+details.ayuda summary::-webkit-details-marker { display: none; }
+details.ayuda summary::after { content: "+"; margin-left: auto; color: var(--ink-3); font-size: 1.2rem; }
+details.ayuda[open] summary::after { content: "−"; }
+.ayuda dl { margin: 0 0 14px; font-size: .88rem; color: var(--ink-2); }
+.ayuda dt { font-weight: 600; color: var(--ink); margin-top: 10px; }
+.ayuda dd { margin: 2px 0 0; }
+footer { text-align: center; font-size: .76rem; color: var(--ink-3); margin-top: 24px; }
+
+.aviso {
+  position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px);
+  background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 12px; font-size: .88rem;
+  opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; max-width: calc(100% - 32px);
+}
+.aviso.visible { opacity: 1; transform: translate(-50%, 0); }
+.aviso.error { background: var(--danger); color: #fff; }
+
+@media (min-width: 720px) {
+  .resultados { grid-template-columns: 1fr 1fr; }
+  #r-imagen, #r-sonido { grid-column: 1 / -1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 32 32"><path d="M5 21c3-6 6-6 9 0s6 6 12-5" stroke="currentColor" stroke-width="3.2" fill="none" stroke-linecap="round" style="color:var(--accent-ink)"/></svg>
+    </div>
+    <div class="marca">
+      <h1>Estudio Generativo</h1>
+      <p>Texto, imagen y sonido desde una sola idea</p>
+    </div>
+    <span class="pastilla" title="Todo se genera en este dispositivo"><i></i>Local</span>
+  </header>
+
+  <section class="tarjeta compositor" aria-label="Crear">
+    <label class="titulo" for="prompt">Describe un lugar, un momento del día y un ánimo</label>
+    <textarea id="prompt" maxlength="300" placeholder="Ej.: un mar en calma al atardecer" autocomplete="off"></textarea>
+    <div class="ejemplos" id="ejemplos" aria-label="Ejemplos"></div>
+
+    <div class="opciones">
+      <div class="segmento" role="group" aria-label="Qué generar">
+        <label><input type="checkbox" id="t-texto" checked><span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Texto</span></label>
+        <label><input type="checkbox" id="t-imagen" checked><span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m3 16 5-5 4 4 3-3 6 6"/></svg>Imagen</span></label>
+        <label><input type="checkbox" id="t-sonido" checked><span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>Sonido</span></label>
+      </div>
+      <select id="modo" aria-label="Forma del texto">
+        <option value="poema">Poema</option>
+        <option value="relato">Relato</option>
+      </select>
+      <label class="semilla">Semilla <input id="semilla" inputmode="numeric" placeholder="automática" aria-label="Semilla"></label>
+    </div>
+
+    <div class="acciones">
+      <button class="btn primario" id="generar">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.6L19.5 9l-5.7 1.5L12 16l-1.8-5.5L4.5 9l5.7-1.4z"/><path d="M19 14l.9 2.6 2.6.9-2.6.9L19 21l-.9-2.6-2.6-.9 2.6-.9z"/></svg>
+        Generar
+      </button>
+      <button class="btn secundario" id="variar" title="Misma idea, otra semilla" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 21v-5h5"/></svg>
+        Otra versión
+      </button>
+    </div>
+  </section>
+
+  <div class="lectura" id="lectura" aria-live="polite"></div>
+
+  <div class="resultados">
+    <article class="tarjeta resultado" id="r-imagen">
+      <div class="cab"><strong>Imagen</strong><span class="meta" id="m-imagen"></span></div>
+      <div class="lienzo" id="lienzo"></div>
+      <div class="pie"><span class="info">Paisaje procedural por capas · PNG</span>
+        <a class="btn secundario mini" id="d-imagen" download>Descargar</a></div>
+    </article>
+
+    <article class="tarjeta resultado" id="r-texto">
+      <div class="cab"><strong>Texto</strong><span class="meta" id="m-texto"></span></div>
+      <div class="texto" id="texto"></div>
+      <div class="pie"><span class="info" id="i-texto"></span>
+        <button class="btn secundario mini" id="copiar">Copiar</button>
+        <a class="btn secundario mini" id="d-texto" download>Descargar</a></div>
+    </article>
+
+    <article class="tarjeta resultado" id="r-sonido">
+      <div class="cab"><strong>Sonido</strong><span class="meta" id="m-sonido"></span></div>
+      <div class="reproductor" id="reproductor">
+        <button class="play" id="play" aria-label="Reproducir" disabled>
+          <svg viewBox="0 0 24 24" fill="currentColor" id="ico-play"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>
+        </button>
+        <div class="onda">
+          <canvas id="onda" aria-label="Forma de onda; toca para saltar"></canvas>
+          <div class="tiempo"><span id="t-actual">0:00</span><span id="t-total">0:00</span></div>
+        </div>
+      </div>
+      <div class="pie"><span class="info" id="i-sonido"></span>
+        <a class="btn secundario mini" id="d-sonido" download>Descargar</a></div>
+      <audio id="audio" preload="auto"></audio>
+    </article>
+  </div>
+
+  <h3 id="h-recientes" hidden>Recientes</h3>
+  <div class="recientes" id="recientes"></div>
+
+  <details class="tarjeta ayuda">
+    <summary>Cómo funciona</summary>
+    <dl>
+      <dt>Interpretación</dt>
+      <dd>Tu descripción se traduce a escena (montaña, bosque, mar, desierto, ciudad o espacio), hora del día y ánimo. Lo que no menciones se elige con la semilla; el punto lleno indica lo que salió de tu texto.</dd>
+      <dt>Texto</dt>
+      <dd>Un modelo de lenguaje de Markov (n-gramas) se entrena al instante con un corpus del tema y genera frases nuevas; descarta las copias literales y elige las más coherentes.</dd>
+      <dt>Imagen</dt>
+      <dd>Render procedural: ruido fractal para cordilleras, nubes y nebulosas, perspectiva atmosférica y un etalonado de color según el ánimo.</dd>
+      <dt>Sonido</dt>
+      <dd>Acordes con una cadena de Markov de armonía funcional, melodía con motivos que se repiten, síntesis aditiva, batería y ambiente de la escena.</dd>
+      <dt>Semilla</dt>
+      <dd>La misma descripción con la misma semilla produce siempre el mismo resultado. "Otra versión" cambia la semilla.</dd>
+    </dl>
+  </details>
+  <footer>Funciona sin internet · Python puro, sin dependencias</footer>
+</div>
+<div class="aviso" id="aviso" role="status"></div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const EJEMPLOS = [
+    "un mar en calma al atardecer", "bosque misterioso al amanecer", "montañas épicas de día",
+    "ciudad alegre de noche", "una galaxia misteriosa", "desierto triste al anochecer",
+    "playa alegre en verano", "volcán épico en la tormenta",
+  ];
+  const ESTADO = { texto: "Escribiendo…", imagen: "Pintando el paisaje…", sonido: "Componiendo y sintetizando…" };
+  let ocupado = false;
+  let ultimaSemilla = null;
+
+  const leer = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
+  const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+
+  // Ejemplos
+  for (const e of EJEMPLOS) {
+    const b = document.createElement("button");
+    b.className = "chip"; b.type = "button"; b.textContent = e;
+    b.onclick = () => { $("prompt").value = e; $("semilla").value = ""; generar(); };
+    $("ejemplos").append(b);
+  }
+
+  function aviso(msg, error = false) {
+    const a = $("aviso");
+    a.textContent = msg; a.className = "aviso visible" + (error ? " error" : "");
+    clearTimeout(aviso.t); aviso.t = setTimeout(() => a.className = "aviso", 2600);
+  }
+
+  async function pedir(tipo, prompt, semilla, modo) {
+    const r = await fetch("/api/generar", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tipo, prompt, semilla, modo }),
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || "Error del servidor");
+    return d;
+  }
+
+  function cargando(contenedor, tipo) {
+    contenedor.innerHTML = `<div class="cargando"><span><i class="giro"></i>${ESTADO[tipo]}</span></div>`;
+  }
+
+  function mostrarLectura(i) {
+    const fila = (nombre, valor, detectado) =>
+      `<span class="etiqueta" title="${detectado ? "Tomado de tu descripción" : "Elegido con la semilla"}"><i class="punto ${detectado ? "lleno" : ""}"></i>${nombre} <b>${valor}</b></span>`;
+    $("lectura").innerHTML =
+      fila("Escena", i.escena, i.detectado.escena) + fila("Hora", i.hora, i.detectado.hora) +
+      fila("Ánimo", i.animo, i.detectado.animo) +
+      `<span class="etiqueta">Semilla <b style="font-family:var(--mono)">${i.semilla}</b></span>` +
+      `<span class="leyenda">● tomado de tu descripción · ○ elegido con la semilla</span>`;
+    $("lectura").classList.add("visible");
+  }
+
+  async function generar(semillaForzada) {
+    if (ocupado) return;
+    const prompt = $("prompt").value.trim();
+    if (!prompt) { aviso("Escribe una descripción o toca un ejemplo"); $("prompt").focus(); return; }
+    const tipos = ["texto", "imagen", "sonido"].filter((t) => $("t-" + t).checked);
+    if (!tipos.length) { aviso("Elige al menos texto, imagen o sonido"); return; }
+    const modo = $("modo").value;
+    let semilla = semillaForzada ?? ($("semilla").value.trim() || null);
+    if (semilla !== null && !/^\d{1,10}$/.test(String(semilla))) { aviso("La semilla debe ser un número", true); return; }
+
+    ocupado = true; $("generar").disabled = true; $("variar").disabled = true;
+    detenerAudio();
+    for (const t of ["texto", "imagen", "sonido"]) $("r-" + t).classList.toggle("visible", tipos.includes(t));
+    if (tipos.includes("imagen")) { cargando($("lienzo"), "imagen"); $("m-imagen").textContent = ""; }
+    if (tipos.includes("texto")) { cargando($("texto"), "texto"); $("m-texto").textContent = ""; $("i-texto").textContent = ""; }
+    if (tipos.includes("sonido")) prepararSonido();
+
+    try {
+      const base = await pedir("interpretar", prompt, semilla, modo);
+      semilla = base.interpretacion.semilla;
+      ultimaSemilla = semilla;
+      mostrarLectura(base.interpretacion);
+      // En orden: el texto llega casi al instante, luego la imagen y por último el audio.
+      for (const tipo of tipos) {
+        try {
+          const d = await pedir(tipo, prompt, semilla, modo);
+          ({ texto: pintarTexto, imagen: pintarImagen, sonido: pintarSonido })[tipo](d);
+        } catch (e) {
+          const c = { texto: $("texto"), imagen: $("lienzo"), sonido: $("reproductor") }[tipo];
+          c.querySelector(".cargando")?.remove();
+          aviso(`No se pudo generar ${tipo}: ${e.message}`, true);
+        }
+      }
+      recordar(prompt, semilla, modo);
+      $("variar").hidden = false;
+    } catch (e) {
+      aviso(e.message === "Failed to fetch" ? "Se perdió la conexión con Python. ¿Sigue abierto el programa?" : e.message, true);
+    } finally {
+      ocupado = false; $("generar").disabled = false; $("variar").disabled = false;
+    }
+  }
+
+  function pintarTexto(d) {
+    const t = d.texto, s = t.estadisticas;
+    const cont = $("texto");
+    cont.innerHTML = "";
+    const h = document.createElement("h2"); h.textContent = t.titulo;
+    const p = document.createElement("div"); p.className = "cuerpo"; p.textContent = t.cuerpo;
+    cont.append(h, p);
+    $("m-texto").textContent = `${d.segundos} s`;
+    $("i-texto").textContent = `${s.frases_nuevas}/${s.frases_total} frases nuevas · ${s.vocabulario} palabras`;
+    $("d-texto").href = d.url;
+    $("copiar").onclick = async () => {
+      try { await navigator.clipboard.writeText(`${t.titulo}\n\n${t.cuerpo}`); aviso("Texto copiado"); }
+      catch { aviso("No se pudo copiar", true); }
+    };
+  }
+
+  function pintarImagen(d) {
+    const img = new Image();
+    img.alt = "Imagen generada para: " + $("prompt").value.trim();
+    img.onload = () => { $("lienzo").innerHTML = ""; $("lienzo").append(img); };
+    img.onerror = () => aviso("No se pudo mostrar la imagen", true);
+    img.src = d.url;
+    $("m-imagen").textContent = `${d.segundos} s · ${(d.bytes / 1024).toFixed(0)} KB`;
+    $("d-imagen").href = d.url;
+  }
+
+  // ---------- Reproductor con forma de onda
+  const audio = $("audio");
+  let picos = null;
+  const fmt = (s) => isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}` : "0:00";
+
+  function prepararSonido() {
+    picos = null; $("play").disabled = true; $("m-sonido").textContent = ""; $("i-sonido").textContent = "";
+    $("t-actual").textContent = "0:00"; $("t-total").textContent = "0:00";
+    let c = $("reproductor").querySelector(".cargando");
+    if (!c) { c = document.createElement("div"); $("reproductor").append(c); }
+    c.className = "cargando"; c.innerHTML = `<span><i class="giro"></i>${ESTADO.sonido}</span>`;
+    dibujar();
+  }
+
+  async function pintarSonido(d) {
+    const buf = await (await fetch(d.url)).arrayBuffer();
+    picos = calcularPicos(buf, 120);
+    audio.src = URL.createObjectURL(new Blob([buf], { type: "audio/wav" }));
+    $("reproductor").querySelector(".cargando")?.remove();
+    $("play").disabled = false;
+    $("m-sonido").textContent = `${d.segundos} s · ${(d.bytes / 1048576).toFixed(1)} MB`;
+    $("i-sonido").textContent = "WAV estéreo · 22 kHz";
+    $("d-sonido").href = d.url;
+    dibujar();
+  }
+
+  function calcularPicos(buf, n) {
+    // WAV PCM 16 bits estéreo: los datos empiezan en el bloque "data".
+    const v = new DataView(buf);
+    let off = 12, ini = 44, largo = buf.byteLength - 44;
+    while (off + 8 <= buf.byteLength) {
+      const id = String.fromCharCode(v.getUint8(off), v.getUint8(off + 1), v.getUint8(off + 2), v.getUint8(off + 3));
+      const tam = v.getUint32(off + 4, true);
+      if (id === "data") { ini = off + 8; largo = Math.min(tam, buf.byteLength - ini); break; }
+      off += 8 + tam + (tam % 2);
+    }
+    const muestras = Math.floor(largo / 4), paso = Math.max(1, Math.floor(muestras / n)), out = [];
+    for (let i = 0; i < n; i++) {
+      let m = 0;
+      for (let j = i * paso; j < Math.min(muestras, (i + 1) * paso); j += 7) {
+        const a = Math.abs(v.getInt16(ini + j * 4, true)) + Math.abs(v.getInt16(ini + j * 4 + 2, true));
+        if (a > m) m = a;
+      }
+      out.push(m / 65536);
+    }
+    const max = Math.max(...out, 0.01);
+    return out.map((x) => Math.pow(x / max, 0.7));
+  }
+
+  function dibujar() {
+    const c = $("onda"), dpr = window.devicePixelRatio || 1;
+    const w = c.clientWidth, h = c.clientHeight;
+    if (!w) return;
+    c.width = w * dpr; c.height = h * dpr;
+    const g = c.getContext("2d"); g.scale(dpr, dpr);
+    const css = getComputedStyle(document.documentElement);
+    const acento = css.getPropertyValue("--accent").trim(), tenue = css.getPropertyValue("--line").trim();
+    const n = picos ? picos.length : 60, ancho = w / n, avance = audio.duration ? audio.currentTime / audio.duration : 0;
+    for (let i = 0; i < n; i++) {
+      const v = picos ? picos[i] : 0.12 + 0.08 * Math.sin(i * 0.7);
+      const alto = Math.max(2, v * (h - 6));
+      g.fillStyle = picos && i / n < avance ? acento : tenue;
+      const x = i * ancho + ancho * 0.18, bw = Math.max(1, ancho * 0.64);
+      g.beginPath();
+      g.roundRect ? g.roundRect(x, (h - alto) / 2, bw, alto, bw / 2) : g.rect(x, (h - alto) / 2, bw, alto);
+      g.fill();
+    }
+  }
+
+  function detenerAudio() { audio.pause(); }
+  const ICONO_PLAY = '<path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/>';
+  const ICONO_PAUSA = '<rect x="6" y="5" width="4.5" height="14" rx="1.2"/><rect x="13.5" y="5" width="4.5" height="14" rx="1.2"/>';
+  $("play").onclick = () => audio.paused ? audio.play() : audio.pause();
+  audio.onplay = () => { $("ico-play").innerHTML = ICONO_PAUSA; $("play").setAttribute("aria-label", "Pausar"); bucle(); };
+  audio.onpause = audio.onended = () => { $("ico-play").innerHTML = ICONO_PLAY; $("play").setAttribute("aria-label", "Reproducir"); dibujar(); };
+  audio.onloadedmetadata = () => { $("t-total").textContent = fmt(audio.duration); };
+  audio.ontimeupdate = () => { $("t-actual").textContent = fmt(audio.currentTime); };
+  function bucle() { dibujar(); if (!audio.paused) requestAnimationFrame(bucle); }
+  $("onda").addEventListener("pointerdown", (e) => {
+    if (!picos || !audio.duration) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    audio.currentTime = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * audio.duration;
+    dibujar();
+  });
+  addEventListener("resize", dibujar);
+
+  // ---------- Recientes
+  function recordar(prompt, semilla, modo) {
+    const lista = leer("eg-recientes", []).filter((x) => !(x.prompt === prompt && x.semilla === semilla));
+    lista.unshift({ prompt, semilla, modo });
+    guardar("eg-recientes", lista.slice(0, 8));
+    pintarRecientes();
+  }
+  function pintarRecientes() {
+    const lista = leer("eg-recientes", []);
+    $("h-recientes").hidden = !lista.length;
+    $("recientes").innerHTML = "";
+    for (const x of lista) {
+      const b = document.createElement("button");
+      b.className = "chip"; b.type = "button"; b.textContent = x.prompt;
+      b.title = `Semilla ${x.semilla}`;
+      b.onclick = () => { $("prompt").value = x.prompt; $("semilla").value = x.semilla; $("modo").value = x.modo || "poema"; generar(); };
+      $("recientes").append(b);
+    }
+  }
+  pintarRecientes();
+
+  $("generar").onclick = () => generar();
+  $("variar").onclick = () => {
+    const s = Math.floor(Math.random() * 4294967295);
+    $("semilla").value = s; generar(s);
+  };
+  $("prompt").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey || !e.shiftKey) && !e.isComposing) { e.preventDefault(); generar(); }
+  });
+  $("prompt").addEventListener("input", () => { $("semilla").value = ""; });
+  dibujar();
+})();
+</script>
+</body>
+</html>

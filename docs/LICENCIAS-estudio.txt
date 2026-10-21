@@ -1,0 +1,15 @@
+Estudio Generativo (estudio.html) incluye dos programas de terceros:
+
+1. voz-espeak.js
+   meSpeak 2.0.2, de Norbert Landsteiner (https://www.masswerk.at/mespeak/),
+   basado en eSpeak de Jonathan Duddington (https://espeak.sourceforge.net/).
+   Licencia: GNU General Public License v3 (GPL-3.0).
+   Empaquetado sin cambios en el código del motor, más la voz "es-la" y un pequeño
+   puente para usarlo dentro de un Web Worker. Código fuente original:
+   https://www.npmjs.com/package/mespeak
+
+2. anthropic-sdk-0.131.0.js
+   SDK oficial de Anthropic para TypeScript/JavaScript (@anthropic-ai/sdk 0.131.0).
+   Licencia: MIT. Copyright Anthropic, PBC.
+   Código fuente: https://github.com/anthropics/anthropic-sdk-typescript
+   Empaquetado para el navegador con esbuild, sin modificaciones.

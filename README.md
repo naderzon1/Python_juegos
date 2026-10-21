@@ -16,6 +16,7 @@ Están en la carpeta [`docs/`](docs/) y no necesitan instalar nada: se abren en 
 | **Plataformas 3D** | palanca en pantalla para moverse (a fondo corre) y botón para saltar | 1 jugador, con música |
 | **Turbo Ruta HD** | igual que Turbo Ruta; botón 🎥 o tecla C para cambiar la cámara | versión en 3D (three.js): 7 circuitos cerrados con desniveles, luces y sombras, autos 3D del garaje, rivales que frenan en las curvas y adelantan, minimapa, gráficos altos o rápidos, 2 jugadores |
 | **Galactic Dominion 3D** | palanca para apuntar, ▲▼ acelerar y frenar, botones FUEGO, MISIL, EVADIR, IMPULSO, ESPEC. y OBJ.; se reacomoda en vertical y en horizontal | arcade espacial 3D (three.js): 5 galaxias, 19 misiones (escolta, defensa, recuperación, supervivencia, élite, jefes), 5 jefes con generadores y fases, nave que evoluciona de Mk I a Mk V, taller de mejoras, progreso guardado, gráficos altos (bloom) o rápidos |
+| **Estudio Generativo** | escribir o tocar un ejemplo; botones Voz, Imagen y Sonido | chat con Claude que responde con texto leído en voz alta, una ilustración y música o ambiente sintetizados en el aparato; necesita una clave de API de Anthropic (se guarda solo en ese navegador; cada respuesta se cobra en esa cuenta) |
 | **Turbo Ruta** | botones de dirección, acelerar, freno y nitro | carreras de 4 vueltas en 7 pistas (Valle Verde, Desierto, Montaña, Ciudad, Playa, Otoño y Volcán) contra 10 rivales; garaje con 5 modelos de auto (cada uno maneja distinto) y 14 colores; 2 jugadores en pantalla dividida (en tablet, la mitad de arriba va girada para quien está enfrente) |
 
 En el computador se juegan con el teclado (la ayuda aparece bajo cada juego), y en cualquier aparato
@@ -52,6 +53,7 @@ Para publicarlas con GitHub Pages: *Settings → Pages → Deploy from a branch 
 | `plataformas3d.py` | Aventura de plataformas 3D con sonido | `ursina` |
 | `mnist.py` | Red neuronal que reconoce dígitos escritos a mano | `tensorflow` |
 | `test_tensorflow.py` | Prueba de que TensorFlow quedó bien instalado | `tensorflow` |
+| `generador_ia.py` | Estudio Generativo: texto, imagen y sonido con IA local | solo Python |
 
 Instalación (Python 3.13; TensorFlow aún no existe para 3.14):
 
@@ -61,6 +63,52 @@ python -m venv .venv
 pip install pygame ursina tensorflow matplotlib pillow
 python bloques.py
 ```
+
+## Estudio Generativo: IA de texto, imagen y sonido
+
+Hay dos versiones:
+
+- **Web, con Claude** ([`docs/estudio.html`](docs/estudio.html)): un chat en el que Claude responde
+  cualquier petición; la página lee la respuesta en voz alta y crea una ilustración y una pieza musical en
+  el propio aparato. Fuera de claude.ai necesita una clave de API de Anthropic, que se guarda solo en ese
+  navegador. Usa la voz del teléfono cuando hay una en español y, si no, una voz integrada (eSpeak).
+  Licencias de los componentes incluidos: [`docs/LICENCIAS-estudio.txt`](docs/LICENCIAS-estudio.txt).
+- **Python, 100 % local y sin internet** (lo que sigue).
+
+### Versión Python
+
+[`ia_generativa/`](ia_generativa/) convierte una descripción ("un mar en calma al atardecer") en un
+**poema o relato**, una **imagen PNG** y una **pieza musical WAV** coherentes entre sí. Funciona sin
+internet y **sin instalar nada**: solo usa la biblioteca estándar de Python 3.9+.
+
+**En el teléfono** (Android: [Pydroid 3](https://play.google.com/store/apps/details?id=ru.iiec.pydroid3)
+o Termux; iPhone/iPad: Pyto o a-Shell): copia la carpeta del repositorio, abre `generador_ia.py` y
+ejecútalo. Se abre una interfaz en el navegador del mismo teléfono (`http://127.0.0.1:8000`). Si no se
+abre sola, escribe esa dirección en el navegador.
+
+**En el computador:**
+
+```bash
+python generador_ia.py                                  # interfaz web
+python generador_ia.py "bosque misterioso al amanecer"  # línea de comandos
+python -m ia_generativa "ciudad épica" --solo texto,imagen --modo relato --semilla 7
+python -m ia_generativa --web --red                     # abrirla desde otro aparato de tu Wi-Fi
+python -m ia_generativa "mar" --corpus mis_textos.txt   # entrenar el texto con tus propios escritos
+python -m unittest discover tests                       # pruebas
+```
+
+Los resultados se guardan en `salida_ia/`. La misma descripción con la misma semilla da siempre el
+mismo resultado.
+
+| Parte | Cómo genera | Tiempo aprox. (PC / teléfono) |
+|---|---|---|
+| Interpretación | Detecta escena (montaña, bosque, mar, desierto, ciudad, espacio), hora y ánimo; lo que falte lo elige la semilla | instantáneo |
+| Texto | Modelo de lenguaje de Markov (n-gramas) entrenado al momento; genera muchos candidatos y elige frases nuevas, en tema y con pocos saltos | < 0,1 s |
+| Imagen | Render procedural por capas: ruido fractal, perspectiva atmosférica, sol/luna, nubes, lluvia o niebla según el ánimo; PNG escrito a mano | ~1 s / ~3–8 s |
+| Sonido | Acordes por cadena de Markov, melodía con motivos, síntesis por tablas de onda, batería, ambiente (olas, viento, pájaros…) y reverb | ~2 s / ~6–15 s |
+
+Límite conocido: son modelos pequeños y explicables, no redes neuronales grandes. El texto es poético
+y a veces salta de idea a mitad de frase; las imágenes son paisajes estilizados, no fotos.
 
 ## GALACTIC DOMINION 3D
 
