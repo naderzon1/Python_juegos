@@ -123,7 +123,12 @@ button { cursor: pointer; }
 .btn-mini { border: 1px solid var(--line); background: var(--surface-2); border-radius: 9px; padding: 5px 10px; font-size: .78rem; color: var(--ink); white-space: nowrap; }
 .btn-mini[disabled] { opacity: .55; cursor: progress; }
 .lienzo { aspect-ratio: 8 / 5; max-width: 100%; background: var(--surface-2); position: relative; }
-.lienzo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.lienzo img, .lienzo canvas { width: 100%; height: 100%; object-fit: contain; display: block; }
+.opcion { border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 8px; background: var(--bg); }
+.opcion h3 { margin: 0; font-size: .92rem; text-transform: none; letter-spacing: 0; color: var(--ink); }
+.opcion .etq { font-size: .7rem; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: .06em; }
+.progreso { height: 8px; border-radius: 99px; background: var(--line); overflow: hidden; }
+.progreso i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
 .espera { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-3); font-size: .86rem; overflow: hidden; }
 .espera::before {
   content: ""; position: absolute; inset: 0;
@@ -194,10 +199,10 @@ button { cursor: pointer; }
     <div class="sello" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 15c2.5-5 5-5 7.5 0s5 5 10.5-5"/></svg></div>
     <div>
       <h1>Estudio Generativo</h1>
-      <p>Respuestas con texto, voz, imagen y música</p>
+      <p>Respuestas narradas en voz alta, con imagen</p>
     </div>
-    <button class="nueva" id="btn-clave" type="button" title="Clave de API de Anthropic" hidden>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l3 3M14.5 8.5l2 2"/></svg>Clave
+    <button class="nueva" id="btn-clave" type="button" title="Elegir cómo responde: IA local o clave de API" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l3 3M14.5 8.5l2 2"/></svg>Modo
     </button>
     <button class="nueva" id="nueva" type="button" title="Empezar una conversación nueva" style="margin-left:8px">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Nueva
@@ -208,20 +213,18 @@ button { cursor: pointer; }
 
   <div class="compositor">
     <form class="caja" id="form">
-      <textarea id="entrada" rows="1" aria-label="Tu petición" placeholder="Pide lo que quieras: una historia, una explicación, una canción…" autocomplete="off"></textarea>
+      <textarea id="entrada" rows="1" aria-label="Tu petición" placeholder="Pide lo que quieras: una historia, una explicación, un consejo…" autocomplete="off"></textarea>
       <div class="fila">
         <button type="button" class="interruptor" id="sw-voz" aria-pressed="true" title="Leer cada respuesta en voz alta al terminar">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>Voz</button>
         <button type="button" class="interruptor" id="sw-imagen" aria-pressed="true" title="Incluir una imagen en la respuesta">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="m3 16 5-5 4 4 3-3 6 6"/></svg>Imagen</button>
-        <button type="button" class="interruptor" id="sw-sonido" aria-pressed="true" title="Incluir música o sonido en la respuesta">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>Sonido</button>
         <button type="submit" class="enviar" id="enviar" aria-label="Enviar" disabled>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" id="ico-enviar"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
         </button>
       </div>
     </form>
-    <div class="nota-pie">Responde Claude con tu cuenta. La voz, la imagen y la música se crean en tu dispositivo. Voz integrada: eSpeak/meSpeak (GPL).</div>
+    <div class="nota-pie" id="nota-modo">Responde Claude con tu cuenta. La voz y la imagen se crean en tu dispositivo. Voz integrada: eSpeak/meSpeak (GPL).</div>
   </div>
 </div>
 <div class="brindis" id="brindis" role="status"></div>
@@ -239,23 +242,15 @@ button { cursor: pointer; }
     { id: "ej1", role: "user", text: "Un faro solitario en una noche de tormenta", ejemplo: true },
     {
       id: "ej2", role: "assistant", ejemplo: true,
-      text: "**El faro de la tormenta**\n\nLa lluvia cae de lado y el mar golpea las rocas, pero la luz del faro sigue girando, paciente, cada pocos segundos. Allá arriba nadie la ve encenderse; solo la ven los barcos que todavía no llegan.\n\nTe dejo el faro sobre el acantilado con su haz cortando la lluvia, y una pieza lenta de piano en *la menor* con la tormenta de fondo.",
+      text: "**El faro de la tormenta**\n\nLa lluvia cae de lado y el mar golpea las rocas, pero la luz del faro sigue girando, paciente, cada pocos segundos. Allá arriba nadie la ve encenderse; solo la ven los barcos que todavía no llegan.\n\nAbajo tienes el faro sobre el acantilado, con su haz cortando la lluvia. Toca el botón de la voz para escuchar esta respuesta.",
       imagen: { alt: "Faro sobre un acantilado de noche, con su haz de luz atravesando la lluvia", svg: SVG_EJEMPLO },
-      sonido: {
-        titulo: "Faro en la tormenta", tempo: 72, instrumento: "piano", bajo: true, bateria: "ninguna",
-        ambiente: ["lluvia", "olas"], volumen_ambiente: 0.55, repeticiones: 1,
-        acordes: [["Am", 4], ["F", 4], ["C", 4], ["G", 4], ["Am", 4], ["F", 4], ["Dm", 4], ["E", 4]],
-        melodia: [["A4", 1.5], ["B4", .5], ["C5", 1], ["E5", 1], ["F5", 2], ["E5", 1], ["C5", 1], ["G4", 1.5], ["A4", .5], ["C5", 2],
-          ["B4", 2], ["D5", 2], ["A4", 1.5], ["B4", .5], ["C5", 1], ["E5", 1], ["F5", 1], ["A5", 1], ["G5", 1], ["F5", 1],
-          ["E5", 1], ["D5", 1], ["C5", 1], ["D5", 1], ["E5", 3], ["R", 1]],
-      },
     },
   ];
   const SUGERENCIAS = [
     ["Cuento", "Un cuento corto de un dragón que le teme a la oscuridad"],
     ["Explicación", "¿Cómo se forma un volcán? Explícamelo fácil"],
-    ["Canción", "Una canción de cuna para mi gato"],
-    ["Ambiente", "El sonido de la lluvia en la ciudad de noche"],
+    ["Poema", "Un poema corto para mi mamá"],
+    ["Consejo", "Dame tres consejos para dormir mejor"],
   ];
 
   // ------------------------------------------------------------------ estado
@@ -351,264 +346,8 @@ button { cursor: pointer; }
   }
   const urlSVG = (svg) => "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 
-  // ------------------------------------------------------------------ síntesis
-  const SR = 32000;
-  const NOTAS = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
-  const hz = (m) => 440 * Math.pow(2, (m - 69) / 12);
-  function midi(n) {
-    const m = /^([A-Ga-g])([#b]?)(-?\d)$/.exec(String(n).trim());
-    if (!m) return null;
-    return 12 * (+m[3] + 1) + NOTAS[m[1].toUpperCase()] + (m[2] === "#" ? 1 : m[2] === "b" ? -1 : 0);
-  }
-  const CALIDADES = {
-    "": [0, 4, 7], m: [0, 3, 7], "7": [0, 4, 7, 10], maj7: [0, 4, 7, 11], m7: [0, 3, 7, 10], m7b5: [0, 3, 6, 10],
-    dim: [0, 3, 6], dim7: [0, 3, 6, 9], aug: [0, 4, 8], sus2: [0, 2, 7], sus4: [0, 5, 7], sus: [0, 5, 7],
-    add9: [0, 4, 7, 14], "9": [0, 4, 7, 10, 14], maj9: [0, 4, 7, 11, 14], m9: [0, 3, 7, 10, 14], "6": [0, 4, 7, 9], m6: [0, 3, 7, 9],
-  };
-  function acorde(nombre) {
-    const m = /^([A-G])([#b]?)(.*)$/.exec(String(nombre).trim());
-    if (!m) return null;
-    const raiz = NOTAS[m[1]] + (m[2] === "#" ? 1 : m[2] === "b" ? -1 : 0);
-    let q = m[3].split("/")[0].replace(/^min/, "m").replace(/^M7/, "maj7").replace(/^Maj/, "maj").replace(/^°/, "dim").replace(/^\+/, "aug");
-    if (!(q in CALIDADES)) q = Object.keys(CALIDADES).filter((k) => k && q.startsWith(k)).sort((a, b) => b.length - a.length)[0] || (q.startsWith("m") ? "m" : "");
-    return { raiz: ((raiz % 12) + 12) % 12, int: CALIDADES[q] };
-  }
-  const INST = {
-    piano: { h: [0, 1, .55, .3, .18, .1, .06, .03], at: .005, tau: .5, sus: 0, rel: .3, lp: 5200 },
-    pulsado: { h: [0, 1, .6, .4, .3, .2, .15, .1], at: .003, tau: .22, sus: 0, rel: .15, lp: 3600 },
-    flauta: { h: [0, 1, .12, .05, .02], at: .07, tau: 0, sus: 1, rel: .15, lp: 6000, vib: true },
-    cuerdas: { h: [0, 1, .5, .33, .25, .2, .16, .14, .12, .1], at: .2, tau: 0, sus: 1, rel: .45, lp: 2600, coro: true },
-    metal: { h: [0, 1, .5, .33, .25, .2, .17, .14, .12, .11, .1], at: .04, tau: 0, sus: 1, rel: .2, lp: 2100 },
-    sintetizador: { h: [0, 1, 0, .33, 0, .2, 0, .14, 0, .11], at: .01, tau: .6, sus: .55, rel: .2, lp: 3000, coro: true },
-    colchon: { h: [0, 1, .25, .1, .04], at: .5, tau: 0, sus: 1, rel: .9, lp: 1800, coro: true },
-    bajo: { h: [0, 1, .45, .15], at: .01, tau: .35, sus: .5, rel: .1, lp: 900 },
-  };
-  const ALIAS = { guitarra: "pulsado", arpa: "pulsado", violin: "cuerdas", orquesta: "cuerdas", trompeta: "metal", synth: "sintetizador", marimba: "campana", vibrafono: "campana", campanas: "campana" };
-
-  function crearRuido(ctx, segundos, marron) {
-    const n = Math.max(1, Math.floor(segundos * ctx.sampleRate));
-    const b = ctx.createBuffer(2, n, ctx.sampleRate);
-    for (let c = 0; c < 2; c++) {
-      const d = b.getChannelData(c); let ultimo = 0;
-      for (let i = 0; i < n; i++) {
-        const w = Math.random() * 2 - 1;
-        if (marron) { ultimo = (ultimo + 0.02 * w) / 1.02; d[i] = ultimo * 3.5; } else d[i] = w;
-      }
-    }
-    return b;
-  }
-
-  async function sintetizar(spec) {
-    spec = spec || {};
-    const tempo = Math.min(200, Math.max(40, +spec.tempo || 90));
-    const tb = 60 / tempo;
-    const mel = (Array.isArray(spec.melodia) ? spec.melodia : []).slice(0, 400)
-      .map((x) => Array.isArray(x) ? [x[0], Math.min(16, Math.max(.125, +x[1] || 1))] : null).filter(Boolean);
-    const aco = (Array.isArray(spec.acordes) ? spec.acordes : []).slice(0, 128)
-      .map((x) => Array.isArray(x) ? [acorde(x[0]), Math.min(16, Math.max(.5, +x[1] || 4))] : [acorde(x), 4]).filter((x) => x[0]);
-    const tiemposMel = mel.reduce((s, x) => s + x[1], 0), tiemposAco = aco.reduce((s, x) => s + x[1], 0);
-    let tiempos = Math.max(tiemposMel, tiemposAco);
-    let reps = Math.min(4, Math.max(1, Math.round(+spec.repeticiones || 1)));
-    let durMusica = 0;
-    if (tiempos > 0) {
-      reps = Math.max(1, Math.min(reps, Math.floor(50 / (tiempos * tb)) || 1));
-      durMusica = Math.min(60, tiempos * tb * reps);
-    }
-    const ambientes = (Array.isArray(spec.ambiente) ? spec.ambiente : [spec.ambiente]).filter((a) => a && a !== "ninguno").slice(0, 2);
-    const dur = Math.max(6, durMusica > 0 ? durMusica + 2.5 : Math.min(45, Math.max(8, +spec.duracion || 20)));
-    const Ctx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
-    const ctx = new Ctx(2, Math.ceil(dur * SR), SR);
-
-    // Mezcla: música -> (seco + reverb) -> compresor; ambiente -> compresor.
-    const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 3; comp.connect(ctx.destination);
-    const musica = ctx.createGain(); musica.connect(comp);
-    const reverb = ctx.createConvolver();
-    const ir = ctx.createBuffer(2, Math.floor(SR * 2.4), SR);
-    for (let c = 0; c < 2; c++) { const d = ir.getChannelData(c); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 3.2); }
-    reverb.buffer = ir;
-    const humedo = ctx.createGain(); humedo.gain.value = 0.28; musica.connect(reverb); reverb.connect(humedo); humedo.connect(comp);
-    const ondas = new Map();
-    const onda = (h) => { const k = h.join(); if (!ondas.has(k)) ondas.set(k, ctx.createPeriodicWave(new Float32Array(h.length), Float32Array.from(h))); return ondas.get(k); };
-    const panear = (nodo, p) => { if (!ctx.createStereoPanner) return nodo; const s = ctx.createStereoPanner(); s.pan.value = p; nodo.connect(s); return s; };
-
-    function voz(t, d, frec, nombre, vel, pan = 0, destino = musica) {
-      const I = INST[nombre] || INST.piano;
-      const g = ctx.createGain();
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(vel, t + I.at);
-      if (I.tau) g.gain.setTargetAtTime(Math.max(vel * I.sus, 1e-4), t + I.at, I.tau);
-      const fin = t + Math.max(d, I.at + .02);
-      g.gain.setTargetAtTime(0, fin, I.rel / 3);
-      const f = ctx.createBiquadFilter(); f.type = "lowpass"; f.frequency.value = Math.min(I.lp, SR / 2 - 100);
-      f.connect(g); panear(g, pan).connect(destino);
-      for (const det of I.coro ? [-7, 7] : [0]) {
-        const o = ctx.createOscillator(); o.setPeriodicWave(onda(I.h)); o.frequency.value = frec; o.detune.value = det;
-        if (I.vib) {
-          const l = ctx.createOscillator(), lg = ctx.createGain(); l.frequency.value = 5.4; lg.gain.value = frec * .006;
-          l.connect(lg); lg.connect(o.frequency); l.start(t); l.stop(fin + I.rel * 2 + .05);
-        }
-        const og = ctx.createGain(); og.gain.value = I.coro ? .6 : 1; o.connect(og); og.connect(f);
-        o.start(t); o.stop(fin + I.rel * 2 + .05);
-      }
-    }
-    function campana(t, frec, vel, pan = 0, destino = musica) {
-      for (const [r, a, d] of [[1, 1, 1.4], [2.76, .45, .7], [5.4, .22, .35]]) {
-        if (frec * r > SR / 2 - 200) continue;
-        const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = frec * r;
-        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vel * a, t + .003); g.gain.setTargetAtTime(0, t + .003, d / 2.5);
-        o.connect(g); panear(g, pan).connect(destino); o.start(t); o.stop(t + d * 2.5);
-      }
-    }
-    const ruido = crearRuido(ctx, 1.2, false);
-    function golpeRuido(t, d, tipo, frec, vel, pan = 0, destino = musica) {
-      const s = ctx.createBufferSource(); s.buffer = ruido;
-      const f = ctx.createBiquadFilter(); f.type = tipo; f.frequency.value = frec;
-      const g = ctx.createGain(); g.gain.setValueAtTime(vel, t); g.gain.exponentialRampToValueAtTime(1e-4, t + d);
-      s.connect(f); f.connect(g); panear(g, pan).connect(destino);
-      s.start(t, Math.random() * .5); s.stop(t + d + .02);
-    }
-    function bombo(t, vel) {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.frequency.setValueAtTime(130, t); o.frequency.exponentialRampToValueAtTime(42, t + .14);
-      g.gain.setValueAtTime(vel, t); g.gain.exponentialRampToValueAtTime(1e-4, t + .38);
-      o.connect(g); g.connect(musica); o.start(t); o.stop(t + .4);
-    }
-    function caja(t, vel) {
-      golpeRuido(t, .17, "bandpass", 1900, vel);
-      const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = 190;
-      g.gain.setValueAtTime(vel * .6, t); g.gain.exponentialRampToValueAtTime(1e-4, t + .12);
-      o.connect(g); g.connect(musica); o.start(t); o.stop(t + .14);
-    }
-    const plato = (t, vel, largo = .05) => golpeRuido(t, largo, "highpass", 7000, vel, .25);
-    function timbal(t, frec, vel) {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.frequency.setValueAtTime(frec * 1.5, t); o.frequency.exponentialRampToValueAtTime(frec, t + .1);
-      g.gain.setValueAtTime(vel, t); g.gain.exponentialRampToValueAtTime(1e-4, t + .5);
-      o.connect(g); g.connect(musica); o.start(t); o.stop(t + .52);
-    }
-
-    // Música
-    let inst = String(spec.instrumento || "piano").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
-    inst = ALIAS[inst] || inst;
-    const bat = String(spec.bateria || "ninguna").toLowerCase();
-    for (let r = 0; r < reps && durMusica > 0; r++) {
-      const base = r * tiempos * tb;
-      let t = 0;
-      for (const [a, d] of aco) {
-        const ini = base + t * tb, dd = d * tb;
-        if (ini >= durMusica) break;
-        a.int.forEach((iv, k) => voz(ini, dd, hz(48 + a.raiz + iv), inst === "cuerdas" ? "cuerdas" : "colchon", .055, (k - 1) * .45));
-        if (spec.bajo !== false) {
-          const raiz = hz(36 + a.raiz);
-          if (["pop", "rock", "epica", "lofi"].includes(bat)) for (let b = 0; b < d; b++) voz(ini + b * tb, tb * .85, raiz, "bajo", .28);
-          else voz(ini, dd * .96, raiz, "bajo", .24);
-        }
-        t += d;
-      }
-      t = 0;
-      for (const [n, d] of mel) {
-        const ini = base + t * tb; t += d;
-        if (ini >= durMusica) break;
-        const m = midi(n); if (m === null || m < 24 || m > 108) continue;
-        const pan = (Math.random() - .5) * .3;
-        if (inst === "campana") campana(ini, hz(m), .28, pan); else voz(ini, d * tb * .92, hz(m), inst, .26, pan);
-      }
-    }
-    if (durMusica > 0 && bat !== "ninguna") {
-      const pulsos = Math.floor(durMusica / tb);
-      for (let b = 0; b < pulsos; b++) {
-        const t = b * tb, enCompas = b % 4;
-        if (bat === "suave") { plato(t, .07); if (enCompas === 0) bombo(t, .45); }
-        else if (bat === "pop") { if (enCompas % 2 === 0) bombo(t, .8); if (enCompas % 2 === 1) caja(t, .45); plato(t, .16); plato(t + tb / 2, .1); }
-        else if (bat === "rock") { if (enCompas === 0 || enCompas === 2) bombo(t, .9); if (enCompas === 2) bombo(t + tb / 2, .7); if (enCompas % 2) caja(t, .6); plato(t, .2); plato(t + tb / 2, .15); }
-        else if (bat === "lofi") { if (enCompas === 0) bombo(t, .7); if (enCompas === 2) bombo(t + tb * .5, .55); if (enCompas % 2) caja(t, .3); plato(t, .07); plato(t + tb * .62, .05); }
-        else if (bat === "epica") {
-          if (enCompas === 0) { bombo(t, 1); bombo(t + tb * .75, .7); }
-          if (enCompas === 2) caja(t, .55);
-          if (b % 16 >= 14) { timbal(t, 110, .5); timbal(t + tb / 2, 90, .5); }
-        }
-      }
-    }
-
-    // Ambiente
-    const volAmb = Math.min(1, Math.max(0, spec.volumen_ambiente ?? .5)) * (durMusica > 0 ? .7 : 1.4);
-    const curva = (n, f) => { const a = new Float32Array(n); for (let i = 0; i < n; i++) a[i] = f(i / (n - 1) * dur); return a; };
-    for (const amb of ambientes) {
-      const salida = ctx.createGain(); salida.gain.value = volAmb; salida.connect(comp);
-      const fondo = (marron, tipo, frec, q) => {
-        const s = ctx.createBufferSource(); s.buffer = crearRuido(ctx, dur, marron);
-        const f = ctx.createBiquadFilter(); f.type = tipo; f.frequency.value = frec; if (q) f.Q.value = q;
-        const g = ctx.createGain(); s.connect(f); f.connect(g); g.connect(salida); s.start(0);
-        return { f, g };
-      };
-      const fase = Math.random() * 6.28;
-      if (amb === "lluvia") {
-        const { g } = fondo(false, "bandpass", 3200, .4); g.gain.value = .32;
-        const n = Math.floor(dur * 14);
-        for (let i = 0; i < n; i++) golpeRuido(Math.random() * dur, .012 + Math.random() * .02, "highpass", 2500 + Math.random() * 4000, .05 + Math.random() * .12, Math.random() * 1.6 - .8, salida);
-      } else if (amb === "olas") {
-        const { f, g } = fondo(true, "lowpass", 600);
-        const n = Math.max(2, Math.floor(dur * 20));
-        f.frequency.setValueCurveAtTime(curva(n, (x) => 350 + 1100 * Math.pow(.5 + .5 * Math.sin(x * .9 + fase), 2)), 0, dur);
-        g.gain.setValueCurveAtTime(curva(n, (x) => .1 + 1.1 * Math.pow(.5 + .5 * Math.sin(x * .9 + fase), 3)), 0, dur);
-      } else if (amb === "viento") {
-        const { f, g } = fondo(false, "bandpass", 500, .9);
-        const n = Math.max(2, Math.floor(dur * 20));
-        f.frequency.setValueCurveAtTime(curva(n, (x) => 320 + 520 * (.5 + .5 * Math.sin(x * .35 + fase) * Math.sin(x * .13))), 0, dur);
-        g.gain.setValueCurveAtTime(curva(n, (x) => .2 + .5 * (.5 + .5 * Math.sin(x * .41 + fase))), 0, dur);
-      } else if (amb === "fuego") {
-        const { g } = fondo(true, "lowpass", 520); g.gain.value = .9;
-        const n = Math.floor(dur * 9);
-        for (let i = 0; i < n; i++) golpeRuido(Math.random() * dur, .004 + Math.random() * .012, "highpass", 1800 + Math.random() * 3000, .1 + Math.random() * .35, Math.random() * 1.2 - .6, salida);
-      } else if (amb === "ciudad") {
-        const { g } = fondo(true, "lowpass", 260); g.gain.value = 1;
-        for (let t = 1 + Math.random() * 3; t < dur - 3; t += 4 + Math.random() * 6) {
-          const s = ctx.createBufferSource(); s.buffer = ruido; s.loop = true;
-          const f = ctx.createBiquadFilter(); f.type = "bandpass"; f.Q.value = 1.2;
-          f.frequency.setValueAtTime(400, t); f.frequency.linearRampToValueAtTime(900, t + 1.2); f.frequency.linearRampToValueAtTime(350, t + 2.6);
-          const g2 = ctx.createGain(); g2.gain.setValueAtTime(0, t); g2.gain.linearRampToValueAtTime(.12, t + 1.2); g2.gain.linearRampToValueAtTime(0, t + 2.6);
-          s.connect(f); f.connect(g2); panear(g2, Math.random() * 1.4 - .7).connect(salida); s.start(t); s.stop(t + 2.7);
-        }
-      } else if (amb === "pajaros") {
-        for (let t = .5 + Math.random(); t < dur - 1; t += 1.2 + Math.random() * 3) {
-          const base = 2400 + Math.random() * 1600, pan = Math.random() * 1.6 - .8, sube = Math.random() < .5 ? 1 : -1;
-          const veces = 2 + Math.floor(Math.random() * 4);
-          for (let j = 0; j < veces; j++) {
-            const t0 = t + j * .11, d = .05 + Math.random() * .04;
-            const o = ctx.createOscillator(), g = ctx.createGain();
-            o.frequency.setValueAtTime(base, t0); o.frequency.linearRampToValueAtTime(base * (1 + .25 * sube), t0 + d);
-            g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(.12, t0 + d / 2); g.gain.linearRampToValueAtTime(0, t0 + d);
-            o.connect(g); panear(g, pan).connect(salida); o.start(t0); o.stop(t0 + d + .01);
-          }
-        }
-      } else if (amb === "grillos") {
-        for (let t = Math.random(); t < dur - .5; t += .45 + Math.random() * .4) {
-          const f0 = 4300 + Math.random() * 500, pan = Math.random() * 1.2 - .6;
-          for (let j = 0; j < 3; j++) {
-            const t0 = t + j * .045, o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = f0;
-            g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(.05, t0 + .01); g.gain.linearRampToValueAtTime(0, t0 + .03);
-            o.connect(g); panear(g, pan).connect(salida); o.start(t0); o.stop(t0 + .035);
-          }
-        }
-      } else if (amb === "cosmos") {
-        const raiz = aco[0] ? aco[0][0].raiz : 0;
-        for (const [m, v] of [[24 + raiz, .22], [31 + raiz, .12]]) voz(0, dur - 1, hz(m), "colchon", v, 0, salida);
-        for (let t = 1; t < dur - 2; t += 1.5 + Math.random() * 3) campana(t, hz(72 + raiz + [0, 7, 12, 14][Math.floor(Math.random() * 4)]), .08, Math.random() * 1.6 - .8, salida);
-      }
-    }
-
-    const buffer = await ctx.startRendering();
-    // Normaliza el pico y suaviza el final.
-    let pico = 1e-6;
-    for (let c = 0; c < 2; c++) { const d = buffer.getChannelData(c); for (let i = 0; i < d.length; i++) { const a = Math.abs(d[i]); if (a > pico) pico = a; } }
-    const g = .9 / pico, fundido = Math.floor(SR * 1.2);
-    for (let c = 0; c < 2; c++) {
-      const d = buffer.getChannelData(c), n = d.length;
-      for (let i = 0; i < n; i++) d[i] *= g * Math.min(1, (n - i) / fundido);
-    }
-    return buffer;
-  }
-
+  // ------------------------------------------------------------------ audio
+  // WAV estéreo de 16 bits a partir de un AudioBuffer (lo usa la voz integrada).
   function wav(buffer) {
     const n = buffer.length, c = 2, dv = new DataView(new ArrayBuffer(44 + n * c * 2));
     const txt = (o, s) => [...s].forEach((ch, i) => dv.setUint8(o + i, ch.charCodeAt(0)));
@@ -626,14 +365,12 @@ button { cursor: pointer; }
 
   // ------------------------------------------------------------------ render
   const ICO_MARCA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M3 15c2.5-5 5-5 7.5 0s5 5 10.5-5"/></svg>';
-  const ICO_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
-  const ICO_PAUSA = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4.5" height="14" rx="1.2"/><rect x="13.5" y="5" width="4.5" height="14" rx="1.2"/></svg>';
   const fmt = (s) => isFinite(s) ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}` : "0:00";
   const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 
   function pintarTodo() {
     const hilo = $("hilo"); hilo.innerHTML = "";
-    if (!EN_CLAUDE && (!estado.sample || estado.pedirClave)) hilo.append(tarjetaClave());
+    if (!EN_CLAUDE && (!estado.sample || estado.pedirClave || (estado.modo === "local" && !LOCAL.listo))) hilo.append(tarjetaModo());
     else if (estado.sample === null) hilo.append(el("div", "aviso-cap", "Para que responda, abre esta página en Claude con tu cuenta y permite que use Claude. El ejemplo de abajo sí funciona aquí."));
     const turnos = estado.turnos.length ? estado.turnos : EJEMPLO;
     for (const t of turnos) hilo.append(t.role === "user" ? pintarYo(t) : pintarIA(t));
@@ -678,7 +415,6 @@ button { cursor: pointer; }
       caja.querySelectorAll(".medio, .fallo, .acciones-ia").forEach((n) => n.remove());
       if (t.text && !t.error && t.text !== "*Detenido.*") caja.append(tarjetaVoz(t));
       if (t.imagen) caja.append(tarjetaImagen(t));
-      if (t.sonido) caja.append(tarjetaSonido(t));
       if (t.notaMedios) {
         const f = el("div", "fallo"); f.append(document.createTextNode(t.notaMedios));
         const b = el("button", "btn-mini", "Reintentar"); b.type = "button"; b.onclick = () => reintentar(t); f.append(b);
@@ -701,8 +437,16 @@ button { cursor: pointer; }
   function tarjetaImagen(t) {
     const m = el("figure", "medio m-imagen"); m.style.margin = "0";
     const lienzo = el("div", "lienzo");
-    const img = new Image(); img.alt = t.imagen.alt || "Imagen generada"; img.src = urlSVG(t.imagen.svg);
-    lienzo.append(img); m.append(lienzo);
+    if (t.imagen.paisaje) {
+      // Paisaje local: se vuelve a pintar a partir de su semilla (no ocupa espacio guardado).
+      lienzo.innerHTML = '<div class="espera"><span>Pintando…</span></div>';
+      modLocal().then((L) => { const c = L.pintarPaisaje(t.imagen.paisaje); c.setAttribute("role", "img"); c.setAttribute("aria-label", t.imagen.alt || "Imagen generada"); lienzo.replaceChildren(c); })
+        .catch(() => { lienzo.innerHTML = '<div class="espera"><span>No se pudo pintar la imagen</span></div>'; });
+    } else {
+      const img = new Image(); img.alt = t.imagen.alt || "Imagen generada"; img.src = urlSVG(t.imagen.svg);
+      lienzo.append(img);
+    }
+    m.append(lienzo);
     const pie = el("figcaption", "medio-pie"); pie.append(el("span", "txt")); pie.firstChild.textContent = t.imagen.alt || "Imagen generada";
     if (puedeGuardar()) {
       const b = el("button", "btn-mini", "Guardar PNG"); b.type = "button";
@@ -715,9 +459,13 @@ button { cursor: pointer; }
   async function guardarPNG(t, btn) {
     btn.disabled = true;
     try {
-      const img = new Image(); img.src = urlSVG(t.imagen.svg); await img.decode();
-      const c = document.createElement("canvas"); c.width = 1600; c.height = 1000;
-      c.getContext("2d").drawImage(img, 0, 0, 1600, 1000);
+      let c;
+      if (t.imagen.paisaje) c = (await modLocal()).pintarPaisaje(t.imagen.paisaje, 1600, 1000);
+      else {
+        const img = new Image(); img.src = urlSVG(t.imagen.svg); await img.decode();
+        c = document.createElement("canvas"); c.width = 1600; c.height = 1000;
+        c.getContext("2d").drawImage(img, 0, 0, 1600, 1000);
+      }
       const blob = await new Promise((r) => c.toBlob(r, "image/png"));
       await guardarArchivo(nombreArchivo(t, "png"), blob);
       aviso("Imagen guardada");
@@ -728,123 +476,8 @@ button { cursor: pointer; }
   const nombreArchivo = (t, ext) => ((t.sonido && t.sonido.titulo) || (t.imagen && t.imagen.alt) || "estudio")
     .toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").slice(0, 40).replace(/^-|-$/g, "") + "." + ext;
 
-  function tarjetaSonido(t) {
-    const m = el("div", "medio m-sonido");
-    const rep = el("div", "reproductor");
-    const play = el("button", "play", ICO_PLAY); play.type = "button"; play.disabled = true; play.setAttribute("aria-label", "Reproducir");
-    const onda = el("div", "onda");
-    const tit = el("div", "titulo-son"); tit.textContent = t.sonido.titulo || "Pieza generada";
-    const canvas = document.createElement("canvas"); canvas.setAttribute("aria-label", "Forma de onda; toca para saltar");
-    const tiempos = el("div", "tiempos", '<span class="ta">0:00</span><span class="tt">…</span>');
-    onda.append(tit, canvas, tiempos); rep.append(play, onda); m.append(rep);
-    const pie = el("div", "medio-pie"); const desc = el("span", "txt"); pie.append(desc);
-    const detalle = [t.sonido.instrumento, t.sonido.tempo && t.sonido.tempo + " ppm", ...(Array.isArray(t.sonido.ambiente) ? t.sonido.ambiente : [t.sonido.ambiente])]
-      .filter((x) => x && x !== "ninguno" && x !== "ninguna").join(" · ");
-    desc.textContent = detalle || "Sonido";
-    let btnGuardar = null;
-    if ((estado.downloads && window.MediaRecorder) || !EN_CLAUDE) {
-      btnGuardar = el("button", "btn-mini", "Guardar audio"); btnGuardar.type = "button"; btnGuardar.disabled = true; pie.append(btnGuardar);
-    }
-    m.append(pie);
-
-    const vista = { canvas, play, ta: tiempos.querySelector(".ta"), tt: tiempos.querySelector(".tt"), picos: null };
-    obtenerAudio(t).then((a) => {
-      vista.picos = picosDe(a.buffer, 110);
-      vista.tt.textContent = fmt(a.buffer.duration);
-      play.disabled = false; if (btnGuardar) btnGuardar.disabled = false;
-      dibujarOnda(vista, a.el);
-      play.onclick = () => {
-        if (a.el.paused) { audios.forEach((o) => o.el && o.el !== a.el && o.el.pause()); a.el.play().catch(() => aviso("Toca de nuevo para reproducir")); }
-        else a.el.pause();
-      };
-      a.el.addEventListener("play", () => { play.innerHTML = ICO_PAUSA; play.setAttribute("aria-label", "Pausar"); const bucle = () => { dibujarOnda(vista, a.el); vista.ta.textContent = fmt(a.el.currentTime); if (!a.el.paused) requestAnimationFrame(bucle); }; bucle(); });
-      const parado = () => { play.innerHTML = ICO_PLAY; play.setAttribute("aria-label", "Reproducir"); dibujarOnda(vista, a.el); };
-      a.el.addEventListener("pause", parado); a.el.addEventListener("ended", parado);
-      canvas.addEventListener("pointerdown", (e) => {
-        const r = canvas.getBoundingClientRect();
-        a.el.currentTime = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * a.buffer.duration;
-        vista.ta.textContent = fmt(a.el.currentTime); dibujarOnda(vista, a.el);
-      });
-      if (btnGuardar) btnGuardar.onclick = () => (EN_CLAUDE ? grabarAudio(a.buffer, t, btnGuardar)
-        : fetch(a.url).then((r) => r.blob()).then((b) => guardarArchivo(nombreArchivo(t, "wav"), b)).catch(() => aviso("No se pudo guardar el audio")));
-      new ResizeObserver(() => dibujarOnda(vista, a.el)).observe(canvas);
-    }).catch(() => { rep.innerHTML = ""; rep.append(el("div", "espera", "<span>No se pudo sintetizar el sonido en este navegador</span>")); });
-    requestAnimationFrame(() => dibujarOnda(vista, null));
-    return m;
-  }
-
-  function obtenerAudio(t) {
-    if (!audios.has(t.id)) {
-      const p = sintetizar(t.sonido).then((buffer) => {
-        const url = URL.createObjectURL(wav(buffer));
-        const a = new Audio(); a.preload = "auto"; a.src = url;
-        return { buffer, url, el: a };
-      });
-      audios.set(t.id, { promesa: p });
-      p.then((v) => Object.assign(audios.get(t.id), v)).catch(() => audios.delete(t.id));
-    }
-    return audios.get(t.id).promesa;
-  }
-
-  function picosDe(buffer, n) {
-    const L = buffer.getChannelData(0), R = buffer.getChannelData(1), paso = Math.max(1, Math.floor(L.length / n)), out = [];
-    for (let i = 0; i < n; i++) {
-      let m = 0;
-      for (let j = i * paso; j < Math.min(L.length, (i + 1) * paso); j += 9) { const a = Math.abs(L[j]) + Math.abs(R[j]); if (a > m) m = a; }
-      out.push(m);
-    }
-    const max = Math.max(...out, 1e-3);
-    return out.map((x) => Math.pow(x / max, .7));
-  }
-
-  function dibujarOnda(v, audio) {
-    const c = v.canvas, dpr = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
-    if (!w) return;
-    if (c.width !== Math.round(w * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
-    const g = c.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
-    const css = getComputedStyle(document.documentElement);
-    const acento = css.getPropertyValue("--accent").trim(), tenue = css.getPropertyValue("--line").trim();
-    const n = v.picos ? v.picos.length : 60, ancho = w / n;
-    const avance = audio && audio.duration ? audio.currentTime / audio.duration : 0;
-    for (let i = 0; i < n; i++) {
-      const val = v.picos ? v.picos[i] : .1 + .06 * Math.sin(i * .7);
-      const alto = Math.max(2, val * (h - 4)), x = i * ancho + ancho * .2, bw = Math.max(1, ancho * .6);
-      g.fillStyle = v.picos && i / n < avance ? acento : tenue;
-      g.fillRect(x, (h - alto) / 2, bw, alto);
-    }
-  }
-
-  async function grabarAudio(buffer, t, btn) {
-    const tipos = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"];
-    const tipo = tipos.find((x) => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(x));
-    if (!tipo) { aviso("Este navegador no puede guardar el audio"); return; }
-    btn.disabled = true;
-    let ac;
-    try {
-      ac = new (window.AudioContext || window.webkitAudioContext)();
-      await ac.resume();
-      const src = ac.createBufferSource(); src.buffer = buffer;
-      const dst = ac.createMediaStreamDestination(); src.connect(dst);
-      const rec = new MediaRecorder(dst.stream, { mimeType: tipo }); const partes = [];
-      rec.ondataavailable = (e) => e.data.size && partes.push(e.data);
-      const fin = new Promise((r) => (rec.onstop = r));
-      rec.start(); src.start();
-      const inicio = ac.currentTime;
-      const reloj = setInterval(() => { btn.textContent = `Preparando ${fmt(ac.currentTime - inicio)} / ${fmt(buffer.duration)}`; }, 250);
-      await new Promise((r) => (src.onended = r));
-      clearInterval(reloj); rec.stop(); await fin;
-      const blob = new Blob(partes, { type: tipo });
-      await estado.downloads.save({ filename: nombreArchivo(t, tipo.includes("mp4") ? "mp4" : "webm"), data: blob });
-      aviso("Audio guardado");
-    } catch (e) {
-      if (!e || e.code !== "declined") aviso("No se pudo guardar el audio");
-    } finally {
-      btn.textContent = "Guardar audio"; btn.disabled = false; if (ac) ac.close();
-    }
-  }
-
   // ------------------------------------------------------------------ voz
-  // Lee la respuesta (y la descripción de la imagen) en voz alta con la música de fondo.
+  // Lee la respuesta (y la descripción de la imagen) en voz alta.
   // Usa la voz del dispositivo si tiene una en español; si no tiene, o no arranca,
   // usa una voz integrada (eSpeak) que se genera aquí mismo y suena como audio normal.
   const VOZ = {
@@ -888,9 +521,8 @@ button { cursor: pointer; }
   }
 
   // Los teléfonos solo dejan sonar audio después de un toque: el primer toque
-  // en la página "despierta" los dos reproductores que usa la narración.
-  const audioVoz = new Audio(), audioFondo = new Audio();
-  audioFondo.loop = true; audioFondo.volume = .18;
+  // en la página "despierta" el reproductor de la narración.
+  const audioVoz = new Audio();
   const silencio = (() => {
     const dv = new DataView(new ArrayBuffer(44 + 1600)), txt = (o, s) => [...s].forEach((c, i) => dv.setUint8(o + i, c.charCodeAt(0)));
     txt(0, "RIFF"); dv.setUint32(4, 36 + 1600, true); txt(8, "WAVEfmt "); dv.setUint32(16, 16, true); dv.setUint16(20, 1, true);
@@ -902,7 +534,7 @@ button { cursor: pointer; }
   function despertar() {
     if (despierto) return;
     despierto = true;
-    for (const a of [audioVoz, audioFondo]) {
+    for (const a of [audioVoz]) {
       if (a.src) continue;
       a.src = silencio;
       const p = a.play(); if (p) p.then(() => { if (a.src === silencio) a.pause(); }).catch(() => {});
@@ -966,10 +598,6 @@ button { cursor: pointer; }
     const s = { id: t.id, trozos, i: 0, vivo: true, perro: 0, motor: motorActual(), estado: "", saltar: null };
     VOZ.sesion = s;
     audios.forEach((o) => o.el && o.el.pause());
-    if (t.sonido) obtenerAudio(t).then((a) => {
-      if (!s.vivo) return;
-      audioFondo.src = a.url; audioFondo.currentTime = 0; audioFondo.play().catch(() => {});
-    }).catch(() => {});
     uiVoz();
     if (s.motor === "dispositivo") leerConDispositivo(s); else leerIntegrada(s);
   }
@@ -1081,7 +709,6 @@ button { cursor: pointer; }
     s.vivo = false; clearTimeout(s.perro); VOZ.sesion = null;
     if (VOZ.ok) { try { speechSynthesis.cancel(); } catch {} }
     audioVoz.pause(); if (s.saltar) s.saltar();
-    audioFondo.pause();
     uiVoz();
   }
 
@@ -1121,7 +748,6 @@ button { cursor: pointer; }
     rep.append(play, info); m.append(rep);
     const pie = el("div", "medio-pie"); const txt = el("span", "txt");
     txt.append("Voz: "); const nv = el("span", "nombre-voz"); nv.textContent = nombreMotor(); txt.append(nv);
-    if (t.sonido) txt.append(" · con su música de fondo");
     const cambiar = el("button", "btn-mini cambiar-voz", "Cambiar voz"); cambiar.type = "button";
     cambiar.onclick = () => {
       const ops = opcionesVoz();
@@ -1130,7 +756,9 @@ button { cursor: pointer; }
       narrar(t);  // se oye la voz nueva al momento
     };
     pie.append(txt, cambiar); m.append(pie);
-    const pista = el("div", "pista", "Para una voz natural, abre esta página en Chrome (Android) o Safari (iPhone): ahí se usan las voces de tu teléfono.");
+    const pista = el("div", "pista", EN_CLAUDE
+      ? "Para una voz natural, abre esta página en Chrome (Android) o Safari (iPhone): ahí se usan las voces de tu teléfono."
+      : "Para una voz más natural, instala una voz en español en los ajustes de «texto a voz» de tu teléfono y vuelve a abrir la página.");
     pista.hidden = hayDispositivo(); m.append(pista);
     if (VOZ.sesion && VOZ.sesion.id === t.id) requestAnimationFrame(uiVoz);
     return m;
@@ -1138,26 +766,17 @@ button { cursor: pointer; }
 
   // ------------------------------------------------------------------ Claude
   function reglas(pide) {
-    return `Eres el motor de "Estudio Generativo", una app que responde a cualquier petición con texto y, cuando se pide, con una imagen y un sonido que acompañan la respuesta.
+    return `Eres el motor de "Estudio Generativo", una app que responde a cualquier petición con texto que luego se narra en voz alta y, cuando se pide, con una imagen que acompaña la respuesta.
 
 FORMATO OBLIGATORIO DE TU RESPUESTA:
 1) La respuesta en Markdown, en el idioma del usuario (español por defecto). Responde de verdad a lo que pide: si es una pregunta, contéstala bien; si es una historia, escríbela. Sé claro y ve al grano; extiéndete solo si lo piden. Tu texto también se leerá en voz alta: escribe frases que suenen bien habladas y evita tablas y emojis salvo que los pidan. No uses imágenes Markdown ni HTML. No menciones este formato ni el JSON.
 2) Después, sola en su línea: ${MARCA}
-3) Después, un único objeto JSON (sin bloque de código): {"imagen": ..., "sonido": ...}
+3) Después, un único objeto JSON (sin bloque de código): {"imagen": ..., "sonido": null}
 
 IMAGEN (${pide.imagen ? "OBLIGATORIA" : "pon null"}): {"alt": "descripción breve", "svg": "<svg ...>...</svg>"}
 - Una ilustración SVG completa y bonita de lo que trata la respuesta: viewBox='0 0 800 500', fondo que cubra todo el lienzo, composición clara con primer plano y fondo, profundidad con capas y degradados (linearGradient/radialGradient), paleta armoniosa, formas limpias. Sin texto salvo que lo pidan.
 - Para que el JSON sea válido: el SVG en UNA sola línea, atributos con comillas SIMPLES, sin comillas dobles ni barras invertidas dentro.
-- Prohibido: <script>, <image>, <foreignObject>, enlaces externos, eventos on*. Máximo unos 7000 caracteres.
-
-SONIDO (${pide.sonido ? "OBLIGATORIO" : "pon null"}): una pieza corta o un paisaje sonoro que acompañe la respuesta. Se sintetiza en el dispositivo a partir de este objeto:
-{"titulo": "...", "tempo": 40-180, "instrumento": "piano|pulsado|flauta|cuerdas|metal|campana|sintetizador",
- "acordes": [["Am",4],["F",4],...], "melodia": [["E5",1],["R",0.5],...], "bajo": true|false,
- "bateria": "ninguna|suave|pop|rock|lofi|epica", "ambiente": ["lluvia"|"olas"|"viento"|"pajaros"|"fuego"|"grillos"|"cosmos"|"ciudad"] (0 a 2),
- "volumen_ambiente": 0-1, "repeticiones": 1-4, "duracion": segundos (solo si no hay música)}
-- Compás de 4/4. Duraciones en tiempos (1 = negra). Acordes con nombres tipo C, Am, F#m7, Bbmaj7, G7, Dsus4. Notas de C3 a C6, "R" es silencio.
-- La melodía debe encajar con los acordes y sumar los mismos tiempos (16 a 48 tiempos). Que sea cantable, con un motivo que se repite y termine en la tónica.
-- Elige tempo, instrumento, batería y ambiente según el ánimo de la respuesta. Si piden solo un efecto o ambiente (lluvia, mar...), deja "acordes" y "melodia" vacíos y usa "ambiente" y "duracion".`;
+- Prohibido: <script>, <image>, <foreignObject>, enlaces externos, eventos on*. Máximo unos 7000 caracteres.`;
   }
 
   function historial(hasta) {
@@ -1190,7 +809,7 @@ SONIDO (${pide.sonido ? "OBLIGATORIO" : "pon null"}): una pieza corta o un paisa
   }
 
   const COPIA_ERROR = {
-    auth: "La clave de API no es válida o fue revocada. Toca «Clave» arriba para cambiarla.",
+    auth: "La clave de API no es válida o fue revocada. Toca «Modo» arriba para cambiarla.",
     sin_saldo: "Tu cuenta de la API no tiene saldo o alcanzó su límite de gasto. Revísalo en console.anthropic.com.",
     not_granted: "No se dio permiso para usar Claude en esta página. Vuelve a abrirla y acepta el permiso.",
     sampling_disabled: "Claude no está disponible para tu cuenta en esta página.",
@@ -1209,7 +828,7 @@ SONIDO (${pide.sonido ? "OBLIGATORIO" : "pon null"}): una pieza corta o un paisa
     texto = (texto ?? $("entrada").value).trim();
     if (!texto || estado.ocupado) return;
     if (!estado.sample) {
-      if (!EN_CLAUDE) { aviso("Primero guarda tu clave de API"); document.getElementById("campo-clave")?.focus(); }
+      if (!EN_CLAUDE) { aviso("Primero elige IA local o tu clave de API"); scrollTo({ top: 0, behavior: "smooth" }); }
       else aviso(estado.sample === null ? "Abre esta página en Claude para poder preguntar" : "Conectando con Claude… inténtalo en un momento");
       return;
     }
@@ -1221,7 +840,7 @@ SONIDO (${pide.sonido ? "OBLIGATORIO" : "pon null"}): una pieza corta o un paisa
   }
 
   async function responder() {
-    const pide = { imagen: $("sw-imagen").getAttribute("aria-pressed") === "true", sonido: $("sw-sonido").getAttribute("aria-pressed") === "true" };
+    const pide = { imagen: $("sw-imagen").getAttribute("aria-pressed") === "true", sonido: false };
     const t = { id: nuevoId(), role: "assistant", text: "", pendiente: true, pide };
     const entrada = [{ role: "user", content: reglas(pide) }, ...historial(estado.turnos.length)];
     estado.turnos.push(t);
@@ -1247,8 +866,9 @@ SONIDO (${pide.sonido ? "OBLIGATORIO" : "pon null"}): una pieza corta o un paisa
       const medios = p.hayMarca ? leerJSON(p.json) : null;
       const faltan = [];
       if (pide.imagen) {
-        const svg = medios && medios.imagen ? limpiarSVG(medios.imagen.svg) : null;
-        if (svg) t.imagen = { alt: String(medios.imagen.alt || "").slice(0, 200), svg }; else faltan.push("la imagen");
+        const im = medios && medios.imagen, svg = im && im.svg ? limpiarSVG(im.svg) : null;
+        if (im && im.paisaje) t.imagen = { alt: String(im.alt || "").slice(0, 200), paisaje: im.paisaje };
+        else if (svg) t.imagen = { alt: String(im.alt || "").slice(0, 200), svg }; else faltan.push("la imagen");
       }
       if (pide.sonido) {
         const s = medios && medios.sonido;
@@ -1302,7 +922,7 @@ SONIDO (${pide.sonido ? "OBLIGATORIO" : "pon null"}): una pieza corta o un paisa
   $("entrada").addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey && !e.isComposing && !matchMedia("(pointer: coarse)").matches) { e.preventDefault(); if (!estado.ocupado) enviar(); }
   });
-  for (const id of ["sw-voz", "sw-imagen", "sw-sonido"]) {
+  for (const id of ["sw-voz", "sw-imagen"]) {
     $(id).addEventListener("click", () => { const b = $(id); b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true")); });
   }
   $("nueva").addEventListener("click", () => {
@@ -1363,26 +983,149 @@ SONIDO (${pide.sonido ? "OBLIGATORIO" : "pon null"}): una pieza corta o un paisa
     };
   }
 
-  function tarjetaClave() {
+  // ------------------------------------------------------------------ modo local (sin clave)
+  // Un modelo de lenguaje pequeño corre en el propio navegador (transformers.js).
+  // Se descarga una vez desde Hugging Face y queda guardado; la imagen y la música
+  // salen de estudio-local.js. No hay claves, cuentas ni costos.
+  const LOCAL = { worker: null, listo: false, cargando: null, progreso: null, modelo: "", device: "", error: "", pendientes: new Map(), sec: 0, mod: null };
+  const urlPropia = (f) => new URL(f, location.href).href;
+  const modLocal = () => LOCAL.mod || (LOCAL.mod = import(urlPropia("estudio-local.js")).catch((e) => { LOCAL.mod = null; throw e; }));
+  const leerModo = () => { try { return localStorage.getItem("eg-modo") || ""; } catch { return ""; } };
+  const guardarModo = (m) => { try { m ? localStorage.setItem("eg-modo", m) : localStorage.removeItem("eg-modo"); } catch {} };
+  const nombreModelo = () => (LOCAL.modelo.split("/").pop() || "modelo local").replace(/-ONNX$/, "") + (LOCAL.device === "webgpu" ? " · GPU" : " · CPU");
+
+  function iniciarLocal() {
+    if (LOCAL.cargando) return LOCAL.cargando;
+    LOCAL.error = ""; LOCAL.progreso = null;
+    LOCAL.cargando = (async () => {
+      let webgpu = false;
+      try { webgpu = !!(navigator.gpu && await navigator.gpu.requestAdapter()); } catch {}
+      const w = new Worker(urlPropia("ia-local-worker.js"), { type: "module" });
+      LOCAL.worker = w;
+      await new Promise((res, rej) => {
+        w.onmessage = (e) => {
+          const d = e.data || {};
+          if (d.tipo === "progreso") { LOCAL.progreso = d; uiLocal(); }
+          else if (d.tipo === "listo") { LOCAL.listo = true; LOCAL.modelo = d.modelo; LOCAL.device = d.device; w.onmessage = mensajeLocal; res(); }
+          else if (d.tipo === "error" && !d.id) rej(new Error(d.mensaje));
+        };
+        w.onerror = (ev) => rej(new Error(ev.message || "no se pudo iniciar el modelo"));
+        w.postMessage({ tipo: "cargar", webgpu });
+      });
+    })();
+    LOCAL.cargando.then(() => {
+      aviso("IA local lista");
+      if (!estado.ocupado) pintarTodo();
+      $("nota-modo").textContent = `Responde un modelo local pequeño (${nombreModelo()}). Puede equivocarse. La voz y la imagen también se crean en tu dispositivo.`;
+    }).catch((e) => {
+      LOCAL.cargando = null; LOCAL.error = String((e && e.message) || e);
+      if (LOCAL.worker) LOCAL.worker.terminate(); LOCAL.worker = null;
+      if (!estado.ocupado) pintarTodo();
+    });
+    return LOCAL.cargando;
+  }
+  function mensajeLocal(e) {
+    const d = e.data || {}, p = LOCAL.pendientes.get(d.id);
+    if (!p) return;
+    if (d.tipo === "trozo") p.trozo(d.texto);
+    else if (d.tipo === "fin") { LOCAL.pendientes.delete(d.id); p.fin(d); }
+    else if (d.tipo === "error") { LOCAL.pendientes.delete(d.id); p.error(d); }
+  }
+  function uiLocal() {
+    const caja = document.getElementById("estado-local");
+    if (!caja) return;
+    const p = LOCAL.progreso, mb = (b) => Math.round(b / 1048576);
+    caja.querySelector(".progreso i").style.width = p && p.total ? Math.min(100, (p.cargado / p.total) * 100) + "%" : "4%";
+    caja.querySelector("span").textContent = p && p.total ? `Descargando el modelo: ${mb(p.cargado)} de ${mb(p.total)} MB` : "Preparando el modelo…";
+  }
+
+  const SISTEMA_LOCAL = "Eres Estudio Generativo, un asistente amable y útil. Responde siempre en español, con claridad y de forma breve: uno a tres párrafos cortos. Si te piden un cuento, poema o canción, escríbelo completo pero corto. Si no sabes algo, dilo.";
+  const sinPensar = (t) => t.replace(/<think>[\s\S]*?(<\/think>|$)/g, "").replace(/^\s+/, "");
+
+  async function sampleLocal(entrada, op = {}) {
+    await iniciarLocal();
+    if (op.signal && op.signal.aborted) throw { code: "cancelled", message: "detenido" };
+    // El primer turno son las reglas de Claude: aquí no sirven. Se quitan las notas de medios.
+    const conv = [];
+    for (const m of entrada.slice(1).slice(-6)) {
+      const content = m.content.replace(/\n*\[Se (mostró|reprodujo)[^\]]*\]/g, "").slice(0, 1500);
+      if (conv.length && conv[conv.length - 1].role === m.role) conv[conv.length - 1].content += "\n" + content;
+      else conv.push({ role: m.role, content });
+    }
+    while (conv.length && conv[0].role !== "user") conv.shift();
+    const id = ++LOCAL.sec;
+    let texto = "";
+    const fin = await new Promise((res, rej) => {
+      LOCAL.pendientes.set(id, {
+        trozo: (t) => { texto += t; const v = sinPensar(texto); if (op.onText && v) op.onText({ text: v, delta: t }); },
+        fin: res,
+        error: (d) => rej({ code: "upstream_error", message: d.mensaje, text: sinPensar(texto) || undefined }),
+      });
+      if (op.signal) op.signal.addEventListener("abort", () => LOCAL.worker && LOCAL.worker.postMessage({ tipo: "parar" }), { once: true });
+      LOCAL.worker.postMessage({ tipo: "generar", id, mensajes: [{ role: "system", content: SISTEMA_LOCAL }, ...conv] });
+    });
+    const cuerpo = sinPensar(texto).trim();
+    if (op.signal && op.signal.aborted) throw { code: "cancelled", message: "detenido", text: cuerpo || undefined };
+    if (!cuerpo) throw { code: "empty_completion", message: "vacío" };
+    // Imagen y música: se eligen por las palabras de la petición y de la respuesta.
+    const L = await modLocal();
+    const peticion = (conv.filter((m) => m.role === "user").pop() || {}).content || "";
+    const p = L.interpretar(peticion, cuerpo);
+    const medios = {
+      imagen: $("sw-imagen").getAttribute("aria-pressed") === "true" ? { alt: L.describir(p), paisaje: { escena: p.escena, hora: p.hora, animo: p.animo, semilla: p.semilla } } : null,
+      sonido: null,
+    };
+    return { text: cuerpo + "\n" + MARCA + "\n" + JSON.stringify(medios), truncated: !!fin.interrumpido && false };
+  }
+
+  function activarLocal() {
+    guardarModo("local"); estado.modo = "local"; estado.sample = sampleLocal; estado.pedirClave = false;
+    $("btn-clave").hidden = false;
+    pintarTodo(); iniciarLocal(); uiLocal();
+  }
+
+  function tarjetaModo() {
     const c = el("section", "clave");
-    c.innerHTML = `<h2>Conecta tu clave de API</h2>
-      <p>Fuera de claude.ai, la página responde con la API de Anthropic usando tu propia clave. Se guarda solo en este navegador y se envía únicamente a Anthropic. Cada respuesta se cobra en tu cuenta de la API (aparte de tu suscripción de Claude); crea una clave en <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
-      <div class="fila-clave"><input id="campo-clave" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-..." aria-label="Clave de API"><button type="button" class="primario" id="guardar-clave">Guardar</button></div>
-      <p id="nota-clave"></p>`;
+    const cargandoLocal = estado.modo === "local" && !LOCAL.listo && LOCAL.cargando;
+    c.innerHTML = `<h2>Elige cómo responde la página</h2>
+      <div class="opcion">
+        <span class="etq">Gratis · sin clave</span>
+        <h3>IA local en tu dispositivo</h3>
+        <p>Descarga una sola vez un modelo pequeño (unos 500 MB; mejor con Wi-Fi) y después responde sin internet, sin cuenta y sin costo. Es mucho menos capaz que Claude: respuestas sencillas y a veces con errores. La imagen es un paisaje que acompaña el tema.</p>
+        <div id="estado-local" ${cargandoLocal ? "" : "hidden"}><div class="progreso"><i></i></div><p><span>Preparando el modelo…</span></p></div>
+        <p id="error-local" ${LOCAL.error ? "" : "hidden"}></p>
+        <div class="fila-clave"><button type="button" class="primario" id="usar-local">${estado.modo === "local" ? (LOCAL.listo ? "IA local activa" : cargandoLocal ? "Descargando…" : "Reintentar la descarga") : "Activar IA local"}</button></div>
+      </div>
+      <div class="opcion">
+        <span class="etq">Mejor calidad · de pago</span>
+        <h3>Claude con tu clave de API</h3>
+        <p>Usa la API de Anthropic con tu propia clave, guardada solo en este navegador. Cada respuesta se cobra en tu cuenta de la API (aparte de tu suscripción). Crea una clave en <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
+        <div class="fila-clave"><input id="campo-clave" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-..." aria-label="Clave de API"><button type="button" class="primario" id="guardar-clave">Usar clave</button></div>
+        <p id="nota-clave"></p>
+      </div>
+      <p>También funciona con tu suscripción, sin clave, si abres esta página como artefacto dentro de claude.ai.</p>`;
+    const err = c.querySelector("#error-local");
+    if (LOCAL.error) err.textContent = "No se pudo cargar el modelo (" + LOCAL.error.slice(0, 140) + "). Revisa la conexión y el espacio libre, y vuelve a intentarlo. Necesita un navegador reciente (Chrome, Edge o Safari actualizados).";
+    const bLocal = c.querySelector("#usar-local");
+    bLocal.disabled = !!(cargandoLocal || (estado.modo === "local" && LOCAL.listo));
+    bLocal.onclick = () => { aviso("Descargando el modelo; puedes seguir usando la página"); activarLocal(); };
     const campo = c.querySelector("#campo-clave"), nota = c.querySelector("#nota-clave");
-    if (leerClave()) { campo.value = leerClave(); nota.textContent = "Hay una clave guardada. Puedes reemplazarla o borrar el campo y guardar para quitarla."; }
+    if (leerClave()) { campo.value = leerClave(); nota.textContent = "Hay una clave guardada. Borra el campo y toca «Usar clave» para quitarla."; }
     c.querySelector("#guardar-clave").onclick = () => {
       const v = campo.value.trim();
       if (v && !/^sk-ant-/.test(v)) { nota.textContent = "La clave debe empezar por sk-ant-. Cópiala completa desde la consola."; return; }
       try { if (v) localStorage.setItem("eg-clave-api", v); else localStorage.removeItem("eg-clave-api"); } catch {}
-      estado.sample = v ? samplePorAPI(v) : null;
+      if (v) { guardarModo("api"); estado.modo = "api"; estado.sample = samplePorAPI(v); }
+      else if (estado.modo === "api") { guardarModo(""); estado.modo = ""; estado.sample = null; }
       estado.pedirClave = false;
-      $("btn-clave").hidden = !v;
+      $("btn-clave").hidden = !estado.modo;
+      $("nota-modo").textContent = estado.modo === "api" ? "Responde Claude con tu clave de API. La voz y la imagen se crean en tu dispositivo." : $("nota-modo").textContent;
       aviso(v ? "Clave guardada. Ya puedes preguntar." : "Clave eliminada");
       pintarTodo();
       if (v) $("entrada").focus();
     };
     campo.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); c.querySelector("#guardar-clave").click(); } });
+    if (cargandoLocal) requestAnimationFrame(uiLocal);
     return c;
   }
   $("btn-clave").addEventListener("click", () => { estado.pedirClave = true; pintarTodo(); scrollTo({ top: 0, behavior: "smooth" }); });
@@ -1396,9 +1139,12 @@ SONIDO (${pide.sonido ? "OBLIGATORIO" : "pon null"}): una pieza corta o un paisa
     window.claude.use("sample").then((s) => { estado.sample = s; if (!s) repintar(); }).catch(() => { estado.sample = null; repintar(); });
     window.claude.use("downloads").then((d) => { if (d) { estado.downloads = d; repintar(); } }).catch(() => {});
   } else {
-    const clave = leerClave();
-    estado.sample = clave ? samplePorAPI(clave) : null;
-    $("btn-clave").hidden = !clave;
+    // Fuera de claude.ai: el último modo elegido (IA local o clave de API).
+    const clave = leerClave(), modo = leerModo() || (clave ? "api" : "");
+    if (modo === "api" && clave) { estado.modo = "api"; estado.sample = samplePorAPI(clave); $("nota-modo").textContent = "Responde Claude con tu clave de API. La voz y la imagen se crean en tu dispositivo."; }
+    else if (modo === "local") { estado.modo = "local"; estado.sample = sampleLocal; iniciarLocal(); }
+    else estado.sample = null;
+    $("btn-clave").hidden = !estado.modo;
     pintarTodo();
   }
 })();
