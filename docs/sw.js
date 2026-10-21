@@ -3,11 +3,14 @@
 // - Archivos propios: primero se piden a internet (así siempre llega la última versión) y,
 //   si no hay conexión, se usa la copia guardada.
 // - Librerías externas (three.js y el emulador): se guardan la primera vez y luego se usan desde el teléfono.
-const CACHE = 'juegos-v6';
+const CACHE = 'juegos-v7';
 const PROPIOS = ['./', 'index.html', 'estilo.css', 'comun.js', 'manifest.webmanifest', 'iconos/icono-192.png', 'iconos/icono-512.png',
   'bloques.html', 'pong.html', 'naves.html', 'naves3d.html', 'plataformas3d.html', 'carreras.html', 'carreras-hd.html',
-  'emulador.html', 'n64.html', 'galactic.html', 'estudio.html', 'anthropic-sdk-0.131.0.js'];
-// voz-espeak.js (5 MB) no se descarga de antemano: se guarda la primera vez que se usa la voz.
+  'emulador.html', 'n64.html', 'galactic.html', 'estudio.html', 'anthropic-sdk-0.131.0.js',
+  'estudio-local.js', 'ia-local-worker.js'];
+// voz-espeak.js (5 MB) y el motor de la IA local (transformers.js y ONNX Runtime, en cdn.jsdelivr.net)
+// no se descargan de antemano:
+// se guardan la primera vez que se usan. El modelo lo guarda transformers.js en el navegador.
 const EXTERNOS = ['https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js',
   // efectos de Galactic Dominion 3D (bloom y reflejos)
   'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/postprocessing/EffectComposer.js',

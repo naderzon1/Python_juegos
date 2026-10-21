@@ -1,4 +1,4 @@
-Estudio Generativo (estudio.html) incluye dos programas de terceros:
+Estudio Generativo (estudio.html) incluye estos programas de terceros:
 
 1. voz-espeak.js
    meSpeak 2.0.2, de Norbert Landsteiner (https://www.masswerk.at/mespeak/),
@@ -13,3 +13,12 @@ Estudio Generativo (estudio.html) incluye dos programas de terceros:
    Licencia: MIT. Copyright Anthropic, PBC.
    Código fuente: https://github.com/anthropics/anthropic-sdk-typescript
    Empaquetado para el navegador con esbuild, sin modificaciones.
+
+3. IA local (no está en este repositorio: se carga desde cdn.jsdelivr.net al activarla)
+   transformers.js 4.3.1 de Hugging Face (@huggingface/transformers), licencia Apache-2.0,
+   https://github.com/huggingface/transformers.js ; y ONNX Runtime Web, licencia MIT.
+
+4. Modelo de lenguaje de la IA local (no está en este repositorio)
+   Se descarga desde Hugging Face al activar la IA local: onnx-community/Qwen2.5-0.5B-Instruct
+   (Qwen2.5, licencia Apache-2.0) o, si no está disponible, onnx-community/Qwen3-0.6B-ONNX
+   (Apache-2.0).

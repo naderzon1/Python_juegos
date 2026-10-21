@@ -16,7 +16,7 @@ Están en la carpeta [`docs/`](docs/) y no necesitan instalar nada: se abren en 
 | **Plataformas 3D** | palanca en pantalla para moverse (a fondo corre) y botón para saltar | 1 jugador, con música |
 | **Turbo Ruta HD** | igual que Turbo Ruta; botón 🎥 o tecla C para cambiar la cámara | versión en 3D (three.js): 7 circuitos cerrados con desniveles, luces y sombras, autos 3D del garaje, rivales que frenan en las curvas y adelantan, minimapa, gráficos altos o rápidos, 2 jugadores |
 | **Galactic Dominion 3D** | palanca para apuntar, ▲▼ acelerar y frenar, botones FUEGO, MISIL, EVADIR, IMPULSO, ESPEC. y OBJ.; se reacomoda en vertical y en horizontal | arcade espacial 3D (three.js): 5 galaxias, 19 misiones (escolta, defensa, recuperación, supervivencia, élite, jefes), 5 jefes con generadores y fases, nave que evoluciona de Mk I a Mk V, taller de mejoras, progreso guardado, gráficos altos (bloom) o rápidos |
-| **Estudio Generativo** | escribir o tocar un ejemplo; botones Voz, Imagen y Sonido | chat con Claude que responde con texto leído en voz alta, una ilustración y música o ambiente sintetizados en el aparato; necesita una clave de API de Anthropic (se guarda solo en ese navegador; cada respuesta se cobra en esa cuenta) |
+| **Estudio Generativo** | escribir o tocar un ejemplo; botones Voz e Imagen | chat que responde cualquier petición, la lee en voz alta y la acompaña con una imagen; gratis con una IA local que corre en el aparato (descarga única de unos 500 MB) o con Claude usando una clave de API de Anthropic |
 | **Turbo Ruta** | botones de dirección, acelerar, freno y nitro | carreras de 4 vueltas en 7 pistas (Valle Verde, Desierto, Montaña, Ciudad, Playa, Otoño y Volcán) contra 10 rivales; garaje con 5 modelos de auto (cada uno maneja distinto) y 14 colores; 2 jugadores en pantalla dividida (en tablet, la mitad de arriba va girada para quien está enfrente) |
 
 En el computador se juegan con el teclado (la ayuda aparece bajo cada juego), y en cualquier aparato
@@ -68,10 +68,16 @@ python bloques.py
 
 Hay dos versiones:
 
-- **Web, con Claude** ([`docs/estudio.html`](docs/estudio.html)): un chat en el que Claude responde
-  cualquier petición; la página lee la respuesta en voz alta y crea una ilustración y una pieza musical en
-  el propio aparato. Fuera de claude.ai necesita una clave de API de Anthropic, que se guarda solo en ese
-  navegador. Usa la voz del teléfono cuando hay una en español y, si no, una voz integrada (eSpeak).
+- **Web** ([`docs/estudio.html`](docs/estudio.html)): un chat que responde cualquier petición, la lee en voz
+  alta y la acompaña con una imagen. Tiene dos modos:
+  - **IA local, gratis y sin clave**: un modelo de lenguaje pequeño (Qwen2.5 0.5B) corre en el propio
+    navegador con [transformers.js](https://github.com/huggingface/transformers.js). Se descarga una vez
+    (unos 500 MB) y después funciona sin internet. Es mucho menos capaz que Claude. La imagen es un paisaje
+    procedural que acompaña el tema (puerto a JavaScript de la versión Python).
+  - **Claude con clave de API**: mejor calidad; cada respuesta se cobra en la cuenta de la API. La clave
+    se guarda solo en ese navegador. Dentro de claude.ai (como artefacto) usa la suscripción, sin clave.
+
+  La narración usa la voz del teléfono cuando hay una en español y, si no, una voz integrada (eSpeak).
   Licencias de los componentes incluidos: [`docs/LICENCIAS-estudio.txt`](docs/LICENCIAS-estudio.txt).
 - **Python, 100 % local y sin internet** (lo que sigue).
 
