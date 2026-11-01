@@ -935,10 +935,17 @@ IMAGEN (${pide.imagen ? "OBLIGATORIA" : "pon null"}): {"alt": "descripción brev
 
   // ------------------------------------------------------------------ modo API (fuera de claude.ai)
   // En GitHub Pages no existe la conexión de claude.ai: se usa la API de Anthropic
-  // con la clave de la persona, guardada solo en este navegador.
+  // con la clave de la persona.
+  // SEGURIDAD: la clave vive SOLO en esta variable, en la memoria de la pestaña. No se guarda
+  // en localStorage porque en GitHub Pages todas las páginas de naderzon1.github.io comparten
+  // ese almacenamiento: el emulador (que carga código de cdn.emulatorjs.org) o cualquier otro
+  // repositorio publicado podría leerla. Al cerrar o recargar la pestaña, la clave desaparece.
+  let claveEnMemoria = "";
   const SDK_URL = new URL("anthropic-sdk-0.131.0.js", location.href).href;  // SDK oficial, alojado junto a la página
   const MODELO = "claude-opus-5-5";
-  const leerClave = () => { try { return localStorage.getItem("eg-clave-api") || ""; } catch { return ""; } };
+  const leerClave = () => claveEnMemoria;
+  // Versiones anteriores guardaban la clave en localStorage: se borra la copia que haya quedado.
+  try { localStorage.removeItem("eg-clave-api"); } catch {}
 
   function samplePorAPI(clave) {
     let cliente = null;
@@ -1099,7 +1106,7 @@ IMAGEN (${pide.imagen ? "OBLIGATORIA" : "pon null"}): {"alt": "descripción brev
       <div class="opcion">
         <span class="etq">Mejor calidad · de pago</span>
         <h3>Claude con tu clave de API</h3>
-        <p>Usa la API de Anthropic con tu propia clave, guardada solo en este navegador. Cada respuesta se cobra en tu cuenta de la API (aparte de tu suscripción). Crea una clave en <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
+        <p>Usa la API de Anthropic con tu propia clave. <b>No se guarda</b>: se usa solo mientras esta pestaña esté abierta y al recargar tendrás que pegarla de nuevo. Te recomendamos ponerle un límite de gasto en la consola. Cada respuesta se cobra en tu cuenta de la API (aparte de tu suscripción). Crea una clave en <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
         <div class="fila-clave"><input id="campo-clave" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-..." aria-label="Clave de API"><button type="button" class="primario" id="guardar-clave">Usar clave</button></div>
         <p id="nota-clave"></p>
       </div>
@@ -1110,17 +1117,19 @@ IMAGEN (${pide.imagen ? "OBLIGATORIA" : "pon null"}): {"alt": "descripción brev
     bLocal.disabled = !!(cargandoLocal || (estado.modo === "local" && LOCAL.listo));
     bLocal.onclick = () => { aviso("Descargando el modelo; puedes seguir usando la página"); activarLocal(); };
     const campo = c.querySelector("#campo-clave"), nota = c.querySelector("#nota-clave");
-    if (leerClave()) { campo.value = leerClave(); nota.textContent = "Hay una clave guardada. Borra el campo y toca «Usar clave» para quitarla."; }
+    // La clave no se vuelve a escribir en el campo: así no queda a la vista en la página.
+    if (leerClave()) nota.textContent = "Hay una clave en uso en esta pestaña. Deja el campo vacío y toca «Usar clave» para quitarla.";
     c.querySelector("#guardar-clave").onclick = () => {
       const v = campo.value.trim();
       if (v && !/^sk-ant-/.test(v)) { nota.textContent = "La clave debe empezar por sk-ant-. Cópiala completa desde la consola."; return; }
-      try { if (v) localStorage.setItem("eg-clave-api", v); else localStorage.removeItem("eg-clave-api"); } catch {}
+      claveEnMemoria = v;  // solo en memoria (ver la nota de seguridad junto a claveEnMemoria)
+      campo.value = "";
       if (v) { guardarModo("api"); estado.modo = "api"; estado.sample = samplePorAPI(v); }
       else if (estado.modo === "api") { guardarModo(""); estado.modo = ""; estado.sample = null; }
       estado.pedirClave = false;
       $("btn-clave").hidden = !estado.modo;
       $("nota-modo").textContent = estado.modo === "api" ? "Responde Claude con tu clave de API. La voz y la imagen se crean en tu dispositivo." : $("nota-modo").textContent;
-      aviso(v ? "Clave guardada. Ya puedes preguntar." : "Clave eliminada");
+      aviso(v ? "Clave lista en esta pestaña. Ya puedes preguntar." : "Clave quitada");
       pintarTodo();
       if (v) $("entrada").focus();
     };
@@ -1140,8 +1149,10 @@ IMAGEN (${pide.imagen ? "OBLIGATORIA" : "pon null"}): {"alt": "descripción brev
     window.claude.use("downloads").then((d) => { if (d) { estado.downloads = d; repintar(); } }).catch(() => {});
   } else {
     // Fuera de claude.ai: el último modo elegido (IA local o clave de API).
-    const clave = leerClave(), modo = leerModo() || (clave ? "api" : "");
-    if (modo === "api" && clave) { estado.modo = "api"; estado.sample = samplePorAPI(clave); $("nota-modo").textContent = "Responde Claude con tu clave de API. La voz y la imagen se crean en tu dispositivo."; }
+    // La clave nunca sobrevive a una recarga: si el último modo fue "api", se vuelve a pedir.
+    const modo = leerModo();
+    if (modo === "api") { estado.modo = ""; estado.sample = null; estado.pedirClave = true;
+      $("nota-modo").textContent = "Por seguridad la clave de API no se guarda: pégala de nuevo para seguir con Claude, o elige la IA local."; }
     else if (modo === "local") { estado.modo = "local"; estado.sample = sampleLocal; iniciarLocal(); }
     else estado.sample = null;
     $("btn-clave").hidden = !estado.modo;

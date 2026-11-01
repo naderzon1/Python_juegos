@@ -3,6 +3,7 @@
 import io
 import json
 import os
+import socket
 import sys
 import tempfile
 import threading
@@ -17,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from ia_generativa import generar, interpretar  # noqa: E402
 from ia_generativa.imagen import generar_imagen  # noqa: E402
+from ia_generativa import servidor  # noqa: E402
 from ia_generativa.servidor import Manejador  # noqa: E402
 from ia_generativa.sonido import generar_sonido  # noqa: E402
 from ia_generativa.temas import ANIMOS, ESCENAS, HORAS, Interpretacion  # noqa: E402
@@ -156,6 +158,78 @@ class Servidor(unittest.TestCase):
         for ruta in ("/salida/../secreto.txt", "/salida/%2e%2e%2fx.txt", "/salida/a.py"):
             with self.assertRaises(urllib.error.HTTPError):
                 urllib.request.urlopen(self.url + ruta)
+
+
+class SeguridadServidor(unittest.TestCase):
+    """Cada prueba reproduce un ataque de la revisión de seguridad y exige que se bloquee."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        Manejador.carpeta = Path(cls.tmp.name)
+        cls.srv = ThreadingHTTPServer(("127.0.0.1", 0), Manejador)
+        cls.puerto = cls.srv.server_address[1]
+        cls.host = f"127.0.0.1:{cls.puerto}"
+        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.srv.shutdown()
+        cls.srv.server_close()
+        cls.tmp.cleanup()
+
+    def crudo(self, metodo, ruta, cabeceras, cuerpo=b"", espera=5):
+        """Envía una petición HTTP escrita a mano y devuelve el código de respuesta."""
+        lineas = [f"{metodo} {ruta} HTTP/1.1"] + [f"{k}: {v}" for k, v in cabeceras.items()]
+        with socket.create_connection(("127.0.0.1", self.puerto)) as s:
+            s.settimeout(espera)
+            s.sendall(("\r\n".join(lineas) + "\r\n\r\n").encode() + cuerpo)
+            return int(s.recv(64).split()[1])
+
+    def post(self, cuerpo, **extra):
+        cab = {"Host": self.host, "Content-Type": "application/json",
+               "Content-Length": str(len(cuerpo)), **extra}
+        return self.crudo("POST", "/api/generar", cab, cuerpo)
+
+    def test_content_length_negativo_responde_en_vez_de_colgarse(self):
+        self.assertEqual(self.post(b"{}", **{"Content-Length": "-1"}), 400)
+
+    def test_content_length_ausente_o_enorme(self):
+        cab = {"Host": self.host, "Content-Type": "application/json"}
+        self.assertEqual(self.crudo("POST", "/api/generar", cab), 411)
+        self.assertEqual(self.post(b"{}", **{"Content-Length": "999999"}), 413)
+
+    def test_csrf_otro_sitio_rechazado(self):
+        cuerpo = b'{"prompt": "csrf", "tipo": "texto"}'
+        self.assertEqual(self.post(cuerpo, Origin="https://sitio-malicioso.example"), 403)
+        # El truco text/plain (sin preflight CORS) también se rechaza.
+        self.assertEqual(self.post(cuerpo, **{"Content-Type": "text/plain"}), 415)
+        self.assertEqual(list(Path(self.tmp.name).glob("csrf-*")), [])
+
+    def test_mismo_origen_sigue_funcionando(self):
+        cuerpo = b'{"prompt": "mar", "tipo": "interpretar"}'
+        self.assertEqual(self.post(cuerpo, Origin=f"http://{self.host}"), 200)
+        self.assertEqual(self.post(cuerpo, Host=f"localhost:{self.puerto}",
+                                   Origin=f"http://localhost:{self.puerto}"), 200)
+
+    def test_dns_rebinding_host_ajeno_rechazado(self):
+        self.assertEqual(self.crudo("GET", "/api/salud", {"Host": f"atacante.example:{self.puerto}"}), 400)
+        self.assertEqual(self.crudo("GET", "/api/salud", {"Host": "127.0.0.1:1"}), 400)
+        self.assertEqual(self.crudo("GET", "/api/salud", {"Host": self.host}), 200)
+        self.assertEqual(self.crudo("GET", "/api/salud", {"Host": f"192.168.1.5:{self.puerto}"}), 200)
+
+    def test_entradas_raras_dan_400(self):
+        self.assertEqual(self.post(b"[1]"), 400)
+        self.assertEqual(self.post(b'{"prompt": "x", "tipo": "texto", "semilla": Infinity}'), 400)
+        self.assertEqual(self.post(b"no es json"), 400)
+
+    def test_carpeta_llena_no_guarda_mas(self):
+        original = servidor.MAX_ARCHIVOS
+        servidor.MAX_ARCHIVOS = len(list(Path(self.tmp.name).iterdir()))
+        try:
+            self.assertEqual(self.post(b'{"prompt": "lleno", "tipo": "texto"}'), 507)
+        finally:
+            servidor.MAX_ARCHIVOS = original
 
 
 if __name__ == "__main__":
