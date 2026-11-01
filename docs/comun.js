@@ -1,4 +1,8 @@
 'use strict';
+// SEGURIDAD: versiones anteriores de estudio.html guardaban la clave de API de Anthropic en
+// localStorage, que comparten todas las páginas de este dominio. Se borra al abrir cualquier página.
+try { localStorage.removeItem('eg-clave-api'); } catch { /* sin almacenamiento */ }
+
 // Utilidades compartidas por los juegos web: guardado local, sonido sintetizado,
 // lienzo que se ajusta a la pantalla, botones táctiles y bucle de animación.
 
