@@ -1,0 +1,12 @@
+# Servidor y API
+fastapi==0.143.3
+uvicorn[standard]==0.54.0
+# Voz: servicio externo de Microsoft Edge (requiere Internet)
+edge-tts==7.3.1
+# Cliente HTTP: proveedor "ollama" y pruebas
+httpx==0.28.1
+# Pruebas
+pytest==9.1.1
+
+# Opcional: proveedor de IA "anthropic" (NADER_LLM_PROVIDER=anthropic). Se cobra en la API de Claude.
+# anthropic>=1.15.0

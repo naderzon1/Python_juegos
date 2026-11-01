@@ -1,0 +1,1039 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Prisma Generativo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: una sola columna — campo de instrucción arriba, el flujo de datos como banda de cinco etapas, y las tres salidas (texto · imagen · audio) en rejilla. Una instrucción entra al prisma y sale en tres canales de color. */
+:root{
+  --bg:#ECEFEC; --surface:#FFFFFF; --sunk:#E1E6E2; --ink:#131714; --muted:#56605A; --line:#C8CFC9;
+  --c-text:#2443C9; --c-img:#B0146B; --c-audio:#08776A; --warn:#9A5600; --err:#B42318;
+  --f-display:"Syne","Avenir Next","Segoe UI",sans-serif;
+  --f-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E1110; --surface:#171B19; --sunk:#101312; --ink:#E6EBE7; --muted:#98A39C; --line:#2C332F;
+    --c-text:#8099FF; --c-img:#F264B1; --c-audio:#3BC8B3; --warn:#F0A54A; --err:#FF7B6F; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E1110; --surface:#171B19; --sunk:#101312; --ink:#E6EBE7; --muted:#98A39C; --line:#2C332F;
+  --c-text:#8099FF; --c-img:#F264B1; --c-audio:#3BC8B3; --warn:#F0A54A; --err:#FF7B6F; color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{color-scheme:light}
+body{margin:0}
+img{max-width:100%}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:28px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--c-text);outline-offset:2px}
+
+/* Cabecera */
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand svg{flex:none}
+.brand h1{font-family:var(--f-display);font-weight:800;font-size:1.35rem;letter-spacing:.01em;margin:0;line-height:1}
+.brand p{margin:2px 0 0;color:var(--muted);font-size:.85rem}
+.pill{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;padding:5px 10px;border:1px solid var(--line);border-radius:999px;display:inline-flex;align-items:center;gap:7px;color:var(--muted);background:var(--surface)}
+.pill i{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.pill[data-mode="claude"] i{background:var(--c-audio)}
+.pill[data-mode="local"] i{background:var(--warn)}
+
+/* Campo de instrucción */
+.prompt{display:flex;flex-direction:column;gap:10px}
+.eyebrow{font-family:var(--f-mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.field{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:6px;transition:border-color .2s}
+.field:focus-within{border-color:var(--ink)}
+.field textarea{display:block;width:100%;min-height:150px;resize:none;border:0;outline:0;background:transparent;color:var(--ink);font-family:var(--f-display);font-weight:600;font-size:clamp(1.35rem,3.4vw,2.1rem);line-height:1.3;padding:26px 26px 64px;caret-color:var(--c-text)}
+.field.is-empty textarea{caret-color:transparent}
+.caret{position:absolute;left:26px;top:26px;width:3px;height:calc(clamp(1.35rem,3.4vw,2.1rem)*1.25);background:var(--ink);pointer-events:none;animation:blink 1.05s steps(1) infinite}
+.field:not(.is-empty) .caret{display:none}
+.field:focus-within .caret{background:var(--c-text)}
+@keyframes blink{50%{opacity:0}}
+.field .bar{position:absolute;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px 12px 26px;flex-wrap:wrap}
+.hint{font-family:var(--f-mono);font-size:.72rem;color:var(--muted)}
+.actions{display:flex;gap:8px}
+.btn{border:1px solid var(--line);background:var(--surface);border-radius:4px;padding:8px 14px;cursor:pointer;font-weight:500;font-size:.9rem;display:inline-flex;align-items:center;gap:8px}
+.btn:hover{border-color:var(--ink)}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.primary:hover{opacity:.88}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.sm{padding:6px 10px;font-size:.82rem}
+.aviso{margin:0;padding:12px 14px;border:1px solid var(--warn);border-radius:6px;background:var(--surface);font-size:.9rem;display:flex;flex-direction:column;gap:4px}
+.aviso b{color:var(--warn)}
+.aviso code{font-family:var(--f-mono);font-size:.82rem;background:var(--sunk);padding:1px 5px;border-radius:3px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px dashed var(--line);background:transparent;border-radius:999px;padding:5px 12px;font-size:.84rem;color:var(--muted);cursor:pointer}
+.chip:hover{color:var(--ink);border-color:var(--ink)}
+
+/* Flujo de datos */
+.flow{display:flex;flex-direction:column;gap:12px}
+.flow-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.flow-head h2,.out h2{font-family:var(--f-display);font-weight:700;font-size:1rem;margin:0;letter-spacing:.01em}
+.stages{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.stage{position:relative;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:12px 12px 11px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.stage .k{font-family:var(--f-mono);font-size:.68rem;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;display:flex;justify-content:space-between;gap:6px}
+.stage b{font-weight:600;font-size:.92rem}
+.stage small{color:var(--muted);font-size:.78rem}
+.stage .meta{font-family:var(--f-mono);font-size:.74rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.stage .st{font-family:var(--f-mono)}
+.stage::before{content:"";position:absolute;left:-1px;right:-1px;top:-1px;height:3px;border-radius:6px 6px 0 0;background:var(--line)}
+.stage[data-ch="text"]{--ch:var(--c-text)} .stage[data-ch="img"]{--ch:var(--c-img)} .stage[data-ch="audio"]{--ch:var(--c-audio)} .stage[data-ch="core"]{--ch:var(--ink)}
+.stage[data-state="running"]::before{background:linear-gradient(90deg,transparent,var(--ch),transparent);background-size:200% 100%;animation:sweep 1.1s linear infinite}
+.stage[data-state="done"]::before{background:var(--ch)}
+.stage[data-state="error"]::before{background:var(--err)}
+.stage[data-state="error"] .st{color:var(--err)}
+.stage[data-state="running"] .st{color:var(--ink)}
+@keyframes sweep{from{background-position:200% 0}to{background-position:0 0}}
+.stage:not(:last-child)::after{content:"";position:absolute;right:-10px;top:50%;width:10px;height:1px;background:var(--line)}
+details.log{background:var(--sunk);border:1px solid var(--line);border-radius:6px}
+details.log summary{cursor:pointer;padding:8px 12px;font-family:var(--f-mono);font-size:.76rem;color:var(--muted)}
+.log ol{list-style:none;margin:0;padding:0 12px 12px;font-family:var(--f-mono);font-size:.75rem;max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:2px}
+.log li{display:grid;grid-template-columns:64px 78px 1fr;gap:8px;min-width:0}
+.log li span:last-child{min-width:0;overflow-wrap:anywhere}
+.log .t{color:var(--muted);font-variant-numeric:tabular-nums}
+.log .s{color:var(--muted)}
+
+/* Salidas */
+.out{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:18px;align-items:start}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:18px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.card-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.card-head h2{display:flex;align-items:center;gap:8px}
+.card-head h2 i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.col{display:flex;flex-direction:column;gap:18px;min-width:0}
+.title-out{font-family:var(--f-display);font-weight:800;font-size:clamp(1.4rem,3vw,1.9rem);line-height:1.15;margin:0;text-wrap:balance}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{font-family:var(--f-mono);font-size:.72rem;padding:2px 8px;border-radius:3px;background:var(--sunk);color:var(--muted)}
+.palette{display:flex;height:14px;border-radius:3px;overflow:hidden;border:1px solid var(--line)}
+.palette span{flex:1}
+.prose{max-width:65ch;font-size:1rem;line-height:1.7}
+.prose p{margin:0 0 .9em}
+.prose h3{font-family:var(--f-display);font-size:1.08rem;margin:1.1em 0 .4em;text-wrap:balance}
+.prose ul{margin:0 0 .9em;padding-left:1.2em}
+.prose .reading{background:color-mix(in srgb,var(--c-text) 14%,transparent);border-radius:3px;box-shadow:0 0 0 4px color-mix(in srgb,var(--c-text) 14%,transparent)}
+.placeholder{color:var(--muted);font-size:.92rem}
+.tabs{display:flex;gap:4px;background:var(--sunk);padding:3px;border-radius:5px}
+.tabs button{border:0;background:transparent;padding:5px 10px;border-radius:3px;font-size:.8rem;cursor:pointer;color:var(--muted)}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink)}
+.frame{position:relative;aspect-ratio:4/3;max-width:100%;background:var(--sunk);border-radius:4px;overflow:hidden;display:grid;place-items:center}
+.frame img,.frame canvas{width:100%;height:100%;object-fit:cover;display:block}
+.frame .ph{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:20px;color:var(--muted);font-size:.88rem}
+.audio-meta{font-family:var(--f-mono);font-size:.76rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.roll{width:100%;height:150px;display:block;background:var(--sunk);border-radius:4px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.note{font-size:.8rem;color:var(--muted)}
+.note.err{color:var(--err)}
+.empty-out{border:1px dashed var(--line);border-radius:6px;padding:22px;color:var(--muted);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+.empty-out div{display:flex;flex-direction:column;gap:4px;min-width:0}
+.empty-out b{color:var(--ink);font-weight:600;display:flex;align-items:center;gap:8px}
+.empty-out b i{width:10px;height:10px;border-radius:2px}
+
+@media (max-width:900px){
+  .stages{grid-template-columns:minmax(0,1fr)}
+  .stage:not(:last-child)::after{right:auto;left:24px;top:auto;bottom:-10px;width:1px;height:10px}
+  .out{grid-template-columns:minmax(0,1fr)}
+  .empty-out{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:520px){
+  .field textarea{padding:20px 18px 92px}
+  .caret{left:18px;top:20px}
+  .field .bar{padding-left:18px}
+}
+@media (prefers-reduced-motion: reduce){
+  .caret{animation:none}
+  .stage[data-state="running"]::before{animation:none;background:var(--ch)}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <svg width="40" height="34" viewBox="0 0 40 34" aria-hidden="true">
+        <path d="M2 17 H14" stroke="var(--ink)" stroke-width="2" fill="none"/>
+        <path d="M14 4 L26 30 H2 Z" transform="translate(4 0)" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/>
+        <path d="M25 15 L39 8" stroke="var(--c-text)" stroke-width="2.4" fill="none"/>
+        <path d="M26 18 L39 18" stroke="var(--c-img)" stroke-width="2.4" fill="none"/>
+        <path d="M25 21 L39 28" stroke="var(--c-audio)" stroke-width="2.4" fill="none"/>
+      </svg>
+      <div>
+        <h1>Prisma</h1>
+        <p>Una instrucción entra; salen texto, imagen y audio.</p>
+      </div>
+    </div>
+    <span class="pill" id="mode" data-mode="wait"><i></i><span id="modeTxt">Conectando…</span></span>
+  </header>
+
+  <section class="prompt" aria-label="Instrucción">
+    <label class="eyebrow" for="q">Instrucción</label>
+    <div class="field is-empty" id="field">
+      <textarea id="q" rows="2" spellcheck="true" autocomplete="off" aria-describedby="hint"></textarea>
+      <span class="caret" aria-hidden="true"></span>
+      <div class="bar">
+        <span class="hint" id="hint">Enter genera · Shift+Enter salto de línea</span>
+        <div class="actions">
+          <button class="btn" id="stop" type="button" hidden>Detener</button>
+          <button class="btn" id="again" type="button" hidden title="Vuelve a generar con otra semilla">Regenerar</button>
+          <button class="btn primary" id="go" type="button">Generar</button>
+        </div>
+      </div>
+    </div>
+    <div class="aviso" id="aviso" role="alert" hidden>
+      <b>Prisma todavía no puede responder tus instrucciones: falta la clave de API de Claude.</b>
+      <span>Sin clave solo funcionan la música y el campo de flujo. Para que redacte el texto y dibuje la ilustración: copia <code>.env.example</code> como <code>.env</code>, pega tu clave después de <code>ANTHROPIC_API_KEY=</code> y reinicia <code>server.py</code>.</span>
+    </div>
+    <div class="chips" aria-label="Ejemplos">
+      <button class="chip" type="button">Un faro en una tormenta al amanecer</button>
+      <button class="chip" type="button">Explica cómo fluye la sangre por el corazón</button>
+      <button class="chip" type="button">Una canción de cuna para un robot que aprende a soñar</button>
+      <button class="chip" type="button">Un domingo de mercado en un pueblo del Valle del Cauca</button>
+    </div>
+  </section>
+
+  <section class="flow" aria-label="Flujo de datos">
+    <div class="flow-head">
+      <h2>Flujo de datos</h2>
+      <span class="audio-meta" id="clock">t = 0.00 s</span>
+    </div>
+    <ol class="stages">
+      <li class="stage" data-id="lex" data-ch="core" data-state="idle">
+        <span class="k"><span>01 · local</span><span class="st">en espera</span></span>
+        <b>Análisis léxico</b><small>Tokens, frecuencias, semilla</small>
+        <span class="meta">—</span>
+      </li>
+      <li class="stage" data-id="plan" data-ch="core" data-state="idle">
+        <span class="k"><span>02 · Claude</span><span class="st">en espera</span></span>
+        <b>Plan semántico</b><small>Intención, tono, paleta, música</small>
+        <span class="meta">—</span>
+      </li>
+      <li class="stage" data-id="text" data-ch="text" data-state="idle">
+        <span class="k"><span>03 · Claude</span><span class="st">en espera</span></span>
+        <b>Texto</b><small>Redacción en streaming</small>
+        <span class="meta">—</span>
+      </li>
+      <li class="stage" data-id="img" data-ch="img" data-state="idle">
+        <span class="k"><span>04 · Claude + local</span><span class="st">en espera</span></span>
+        <b>Imagen</b><small>Ilustración SVG y campo de flujo</small>
+        <span class="meta">—</span>
+      </li>
+      <li class="stage" data-id="audio" data-ch="audio" data-state="idle">
+        <span class="k"><span>05 · local</span><span class="st">en espera</span></span>
+        <b>Audio</b><small>Composición algorítmica y voz</small>
+        <span class="meta">—</span>
+      </li>
+    </ol>
+    <details class="log" id="logBox">
+      <summary>Registro de eventos (<span id="logCount">0</span>)</summary>
+      <ol id="log"></ol>
+    </details>
+  </section>
+
+  <div class="empty-out" id="emptyOut">
+    <div><b><i style="background:var(--c-text)"></i>Texto</b><span>Claude redacta la respuesta en el idioma de tu instrucción, lista para leerse en voz alta.</span></div>
+    <div><b><i style="background:var(--c-img)"></i>Imagen</b><span>Una ilustración vectorial de Claude y un campo de flujo generado con ruido a partir de la paleta del plan.</span></div>
+    <div><b><i style="background:var(--c-audio)"></i>Audio</b><span>Narración con la voz del navegador y una pieza compuesta por una cadena de Markov sobre la escala elegida.</span></div>
+  </div>
+
+  <section class="out" id="out" hidden aria-live="polite">
+    <div class="col">
+      <article class="card">
+        <div class="card-head">
+          <h2><i style="background:var(--c-text)"></i>Texto</h2>
+          <div class="row"><button class="btn sm dl" id="dlText" type="button" hidden>Descargar .md</button></div>
+        </div>
+        <h3 class="title-out" id="titleOut"></h3>
+        <div class="tags" id="tags"></div>
+        <div class="palette" id="palette" aria-label="Paleta del plan"></div>
+        <div class="prose" id="textOut"><p class="placeholder">Pensando…</p></div>
+        <p class="note" id="textNote"></p>
+      </article>
+    </div>
+    <div class="col">
+      <article class="card">
+        <div class="card-head">
+          <h2><i style="background:var(--c-img)"></i>Imagen</h2>
+          <div class="tabs" role="tablist">
+            <button role="tab" id="tabSvg" aria-selected="true" type="button">Ilustración</button>
+            <button role="tab" id="tabFlow" aria-selected="false" type="button">Campo de flujo</button>
+          </div>
+        </div>
+        <div class="frame" id="frameSvg"><img id="svgImg" alt="Ilustración generada" hidden><div class="ph" id="svgPh">Dibujando…</div></div>
+        <div class="frame" id="frameFlow" hidden><canvas id="flow" width="1200" height="900" aria-label="Campo de flujo generado"></canvas></div>
+        <div class="row">
+          <button class="btn sm dl" id="dlSvg" type="button" hidden>Descargar .svg</button>
+          <button class="btn sm dl" id="dlPng" type="button" hidden>Descargar campo .png</button>
+        </div>
+        <p class="note" id="imgNote"></p>
+      </article>
+      <article class="card">
+        <div class="card-head">
+          <h2><i style="background:var(--c-audio)"></i>Audio</h2>
+          <span class="audio-meta" id="audioMeta">—</span>
+        </div>
+        <canvas class="roll" id="roll" aria-label="Partitura generada"></canvas>
+        <div class="row">
+          <button class="btn sm" id="pNarr" type="button" disabled>▶ Narración</button>
+          <button class="btn sm" id="pMusic" type="button" disabled>▶ Música</button>
+          <button class="btn sm" id="pBoth" type="button" disabled>▶ Ambos</button>
+          <button class="btn sm" id="pStop" type="button">■ Detener</button>
+        </div>
+        <div class="row"><button class="btn sm dl" id="dlAudio" type="button" hidden>Descargar música .webm</button></div>
+        <p class="note" id="audioNote"></p>
+      </article>
+    </div>
+  </section>
+</div>
+
+<script>
+(() => {
+"use strict";
+const $ = (s) => document.querySelector(s);
+const q = $("#q"), field = $("#field");
+let sample = null, downloads = null;
+let runId = 0, controllers = [], t0 = 0, clockTimer = null;
+let current = null; // {plan, analysis, text, svg, comp, paragraphs}
+
+/* ---------- Conexión con el servidor local (server.py → API de Claude) ---------- */
+function setMode(m, txt){ $("#mode").dataset.mode = m; $("#modeTxt").textContent = txt; }
+
+// Lee la respuesta como JSON con tolerancia: todo el texto, un bloque ```json o del primer { al último }
+function parseJsonTolerant(t){
+  try { return JSON.parse(t); } catch (_) {}
+  const f = t.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (f){ try { return JSON.parse(f[1]); } catch (_) {} }
+  const a = t.search(/[{[]/), b = Math.max(t.lastIndexOf("}"), t.lastIndexOf("]"));
+  if (a >= 0 && b > a){ try { return JSON.parse(t.slice(a, b + 1)); } catch (_) {} }
+  throw { code: "invalid_json", message: "La respuesta no contiene JSON", text: t };
+}
+
+// Misma forma que usaba la versión de Claude.ai: sample(prompt, {onText, signal, modelTier})
+async function localSample(input, opts){
+  opts = opts || {};
+  const cancelled = () => opts.signal && opts.signal.aborted;
+  let res;
+  try {
+    res = await fetch("/api/generar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt: input, nivel: opts.modelTier === "quick" ? "rapido" : "normal" }),
+      signal: opts.signal
+    });
+  } catch (e){
+    if (cancelled()) throw { code: "cancelled", message: "cancelado" };
+    throw { code: "upstream_error", message: String(e) };
+  }
+  if (!res.ok || !res.body) throw { code: "upstream_error", message: "HTTP " + res.status };
+  const reader = res.body.getReader(), dec = new TextDecoder();
+  let buf = "", text = "", truncated = false;
+  try {
+    for (;;){
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let i;
+      while ((i = buf.indexOf("\n")) >= 0){
+        const line = buf.slice(0, i); buf = buf.slice(i + 1);
+        if (!line.trim()) continue;
+        const ev = JSON.parse(line);
+        if (ev.t === "delta"){ text += ev.text; if (opts.onText) opts.onText({ text, delta: ev.text }); }
+        else if (ev.t === "fin"){ truncated = ev.stop === "max_tokens"; }
+        else if (ev.t === "error"){ throw { code: ev.code, message: ev.message, text: text || undefined }; }
+      }
+    }
+  } catch (e){
+    if (cancelled()) throw { code: "cancelled", message: "cancelado", text: text || undefined };
+    if (e && e.code) throw e;
+    throw { code: "upstream_error", message: String(e), text: text || undefined };
+  }
+  if (!text.trim()) throw { code: "empty_completion", message: "Sin texto" };
+  return { text, truncated };
+}
+localSample.json = async (input, opts) => parseJsonTolerant((await localSample(input, opts)).text);
+
+// Descargas locales: un enlace temporal con el atributo download
+downloads = {
+  save: async ({ filename, data }) => {
+    const blob = data instanceof Blob ? data : new Blob([data]);
+    const url = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = url; a.download = filename; document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    return { status: "saved" };
+  }
+};
+
+fetch("/api/estado").then((r) => r.json()).then((e) => {
+  sample = e.claude ? localSample : null;
+  setMode(e.claude ? "claude" : "local", e.claude ? "Claude · " + e.modelo : "Modo local · falta la clave de API");
+  $("#aviso").hidden = !!e.claude;
+}).catch(() => setMode("local", "Modo local · abre la página con server.py"));
+
+/* ---------- Campo con cursor parpadeante ---------- */
+function syncField(){
+  field.classList.toggle("is-empty", q.value.length === 0);
+  q.style.height = "auto";
+  q.style.height = Math.max(150, q.scrollHeight) + "px";
+}
+q.addEventListener("input", syncField);
+q.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); run(false); }
+});
+document.querySelectorAll(".chip").forEach((c) => c.addEventListener("click", () => {
+  q.value = c.textContent; syncField(); q.focus(); q.setSelectionRange(q.value.length, q.value.length);
+}));
+$("#go").addEventListener("click", () => run(false));
+$("#again").addEventListener("click", () => run(true));
+$("#stop").addEventListener("click", stopAll);
+try { q.focus({ preventScroll: true }); } catch (_) {}
+syncField();
+
+/* ---------- Utilidades ---------- */
+function fnv1a(str){ let h = 0x811c9dc5; for (let i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193); } return h >>> 0; }
+function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const elapsed = () => ((performance.now() - t0) / 1000);
+function kb(n){ return n < 1024 ? n + " B" : (n / 1024).toFixed(1) + " kB"; }
+function slug(s){ return (s || "prisma").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 48) || "prisma"; }
+function cssVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+
+function log(stage, msg){
+  const li = document.createElement("li");
+  const a = document.createElement("span"); a.className = "t"; a.textContent = "+" + elapsed().toFixed(2) + "s";
+  const b = document.createElement("span"); b.className = "s"; b.textContent = stage;
+  const c = document.createElement("span"); c.textContent = msg;
+  li.append(a, b, c); $("#log").append(li);
+  $("#logCount").textContent = $("#log").children.length;
+  li.scrollIntoView({ block: "nearest" });
+}
+const STATE_TXT = { idle: "en espera", running: "procesando", done: "listo", error: "error", skip: "omitido" };
+function stage(id, state, meta){
+  const el = document.querySelector('.stage[data-id="' + id + '"]');
+  el.dataset.state = state; el.querySelector(".st").textContent = STATE_TXT[state];
+  if (meta !== undefined) el.querySelector(".meta").textContent = meta;
+}
+function errCopy(e){
+  switch (e && e.code){
+    case "cancelled": return "Detenido.";
+    case "not_granted": case "sampling_disabled": case "not_declared": case "capability_disabled": case "capability_removed":
+      return "Claude no está disponible en esta vista; se usaron solo los algoritmos locales.";
+    case "rate_limited": return "Demasiadas solicitudes seguidas. Espera un momento y pulsa Regenerar.";
+    case "refused": return "Claude no generó contenido para esta instrucción. Prueba a reformularla.";
+    case "session_expired": return "Tu sesión de Claude expiró. Inicia sesión otra vez y vuelve a intentarlo.";
+    case "invalid_json": return "El plan llegó con un formato que no se pudo leer; se usó el plan local.";
+    case "auth": return "Falta la clave de API de Claude o no es válida. Revisa el archivo .env y reinicia server.py.";
+    case "invalid_request": return "La API rechazó la solicitud. Revisa el nombre del modelo en .env (PRISMA_MODELO).";
+    case "empty_completion": return "Claude no devolvió contenido. Simplifica la instrucción.";
+    default: return "Se cortó la conexión con Claude. Pulsa Regenerar para intentarlo de nuevo.";
+  }
+}
+function fatal(e){ return ["auth","not_granted","sampling_disabled","not_declared","capability_disabled","capability_removed"].includes(e && e.code); }
+function newSignal(){ const c = new AbortController(); controllers.push(c); return c.signal; }
+
+/* ---------- 01 · Análisis léxico (local) ---------- */
+const STOP = new Set("el la los las un una unos unas de del al a en y o u que por para con sin sobre como mas más pero se su sus lo le les me mi mis tu tus te es son ser fue era muy ya este esta estos estas ese esa eso the a an of to in and or is are for with on at by it this that be as from".split(" "));
+const POS = /(amor|alegr|luz|sol|feliz|paz|sueñ|suen|esperanza|brill|calma|dulce|bonit|herm|vida|fiesta|amanecer|jard|flor|celebr|risa|libre|happy|joy|love|light|bright|hope|dream|peace)/;
+const NEG = /(tormenta|oscur|miedo|triste|muerte|guerra|dolor|sombra|noche|frío|frio|soledad|llanto|caos|ruina|rabia|ira|storm|dark|fear|sad|death|war|pain|shadow|night|cold)/;
+function analyze(text, salt){
+  const tokens = (text.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []);
+  const freq = new Map();
+  let pos = 0, neg = 0;
+  for (const t of tokens){
+    if (POS.test(t)) pos++; if (NEG.test(t)) neg++;
+    if (STOP.has(t) || t.length < 3) continue;
+    freq.set(t, (freq.get(t) || 0) + 1);
+  }
+  const top = [...freq.entries()].sort((a, b) => b[1] - a[1] || b[0].length - a[0].length).slice(0, 6).map((x) => x[0]);
+  const energy = Math.min(1, ((text.match(/[!¡?¿]/g) || []).length * 0.25) + tokens.length / 60);
+  const sentiment = pos === neg ? 0 : (pos > neg ? 1 : -1);
+  const seed = (fnv1a(text) ^ (salt || 0)) >>> 0;
+  const isQuestion = /[?¿]|^(c[oó]mo|qu[eé]|por qu[eé]|explica|what|how|why)\b/i.test(text.trim());
+  return { tokens, unique: new Set(tokens).size, top, energy, sentiment, seed, isQuestion, bytes: new TextEncoder().encode(text).length };
+}
+
+/* Plan local de respaldo: se deriva sólo del análisis léxico */
+function hsl2hex(h, s, l){
+  s /= 100; l /= 100; const k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
+  const f = (n) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))))).toString(16).padStart(2, "0");
+  return "#" + f(0) + f(8) + f(4);
+}
+function localPlan(A, text){
+  const rnd = mulberry32(A.seed);
+  const base = Math.floor(rnd() * 360);
+  const paleta = [0, 1, 2, 3, 4].map((i) => hsl2hex((base + i * 137.5) % 360, 45 + i * 8, 14 + i * 16));
+  const escala = A.sentiment > 0 ? (rnd() < .5 ? "mayor" : "lidia") : A.sentiment < 0 ? (rnd() < .5 ? "menor" : "frigia") : (rnd() < .5 ? "dorica" : "pentatonica");
+  const caracteres = ["calmo", "ondulante", "pulsante", "solemne"];
+  return {
+    titulo: (A.top.slice(0, 3).join(" · ") || text.slice(0, 40)).replace(/^./, (c) => c.toUpperCase()),
+    idioma: /[áéíóúñ¿¡]|\b(el|la|de|que|una?)\b/i.test(text) ? "es-ES" : (navigator.language || "es-ES"),
+    intencion: A.isQuestion ? "explicar" : "crear",
+    tono: A.sentiment > 0 ? "luminoso" : A.sentiment < 0 ? "dramático" : "sereno",
+    palabras_clave: A.top.slice(0, 5),
+    paleta,
+    musica: { escala, tonica: "CDEFGAB"[Math.floor(rnd() * 7)], tempo: Math.round(64 + A.energy * 60 + rnd() * 12), caracter: caracteres[Math.floor(rnd() * 4)] },
+    escena: text
+  };
+}
+const HEX = /^#[0-9a-f]{6}$/i;
+function mergePlan(base, p){
+  if (!p || typeof p !== "object") return base;
+  const out = { ...base, musica: { ...base.musica } };
+  for (const k of ["titulo", "idioma", "intencion", "tono", "escena"]) if (typeof p[k] === "string" && p[k].trim()) out[k] = p[k].trim().slice(0, 400);
+  if (Array.isArray(p.palabras_clave)) out.palabras_clave = p.palabras_clave.filter((x) => typeof x === "string").slice(0, 6);
+  if (Array.isArray(p.paleta)){ const pal = p.paleta.filter((x) => typeof x === "string" && HEX.test(x)); if (pal.length >= 3) out.paleta = pal.slice(0, 6); }
+  const m = p.musica || {};
+  if (SCALES[m.escala]) out.musica.escala = m.escala;
+  if (typeof m.tonica === "string" && NOTE[m.tonica.toUpperCase()] !== undefined) out.musica.tonica = m.tonica.toUpperCase();
+  if (Number.isFinite(+m.tempo)) out.musica.tempo = Math.max(56, Math.min(140, Math.round(+m.tempo)));
+  if (RHYTHMS[m.caracter]) out.musica.caracter = m.caracter;
+  return out;
+}
+
+/* ---------- Orquestación ---------- */
+async function run(fresh){
+  const text = q.value.trim();
+  if (!text){ q.focus(); return; }
+  stopAll(true);
+  const my = ++runId;
+  controllers = [];
+  t0 = performance.now();
+  clearInterval(clockTimer);
+  clockTimer = setInterval(() => { $("#clock").textContent = "t = " + elapsed().toFixed(2) + " s"; }, 80);
+  $("#log").textContent = ""; $("#logCount").textContent = "0";
+  ["lex", "plan", "text", "img", "audio"].forEach((id) => stage(id, "idle", "—"));
+  $("#emptyOut").hidden = true; $("#out").hidden = false;
+  $("#stop").hidden = false; $("#again").hidden = true; $("#go").disabled = true;
+  $("#textOut").innerHTML = '<p class="placeholder">Pensando…</p>';
+  $("#textNote").textContent = ""; $("#imgNote").textContent = ""; $("#audioNote").textContent = "";
+  $("#titleOut").textContent = ""; $("#tags").textContent = ""; $("#palette").textContent = "";
+  $("#svgImg").hidden = true; $("#svgPh").hidden = false; $("#svgPh").textContent = sample ? "Dibujando…" : "La ilustración necesita Claude. Mira el campo de flujo.";
+  ["#pNarr", "#pMusic", "#pBoth"].forEach((s) => $(s).disabled = true);
+  current = { text: "", svg: "", paragraphs: [], recording: null };
+  refreshDownloads();
+  log("entrada", "instrucción recibida · " + text.length + " caracteres");
+
+  // 01 Análisis léxico
+  stage("lex", "running");
+  const A = analyze(text, fresh ? (Math.random() * 2 ** 32) >>> 0 : 0);
+  current.analysis = A;
+  log("léxico", A.tokens.length + " tokens · " + A.unique + " únicos · semilla 0x" + A.seed.toString(16).padStart(8, "0"));
+  log("léxico", "términos: " + (A.top.join(", ") || "—") + " · polaridad " + (A.sentiment > 0 ? "+" : A.sentiment < 0 ? "−" : "0") + " · energía " + A.energy.toFixed(2));
+  stage("lex", "done", A.tokens.length + " tokens · 0x" + A.seed.toString(16).slice(0, 6));
+
+  // 02 Plan semántico
+  let plan = localPlan(A, text);
+  if (sample){
+    stage("plan", "running", "Claude · rápido");
+    const prompt = buildPlanPrompt(text, A);
+    log("plan", "→ solicitud " + kb(new TextEncoder().encode(prompt).length) + " a Claude (rápido)");
+    try {
+      const opts = { modelTier: "quick", signal: newSignal() };
+      if (fresh) opts.cache = false;
+      const p = await sample.json(prompt, opts);
+      if (my !== runId) return;
+      plan = mergePlan(plan, p);
+      log("plan", "← plan.json · escala " + plan.musica.escala + " · " + plan.paleta.length + " colores");
+      stage("plan", "done", plan.tono + " · " + plan.musica.escala);
+    } catch (e){
+      if (my !== runId) return;
+      if (e.code === "cancelled") return;
+      if (fatal(e)){ sample = null; setMode("local", "Modo local · solo algoritmos"); }
+      log("plan", "× " + (e.code || "error") + " · se usa el plan local");
+      stage("plan", "error", "plan local");
+      $("#textNote").textContent = errCopy(e);
+    }
+  } else {
+    log("plan", "sin Claude · plan derivado del análisis léxico");
+    stage("plan", "done", "plan local");
+  }
+  current.plan = plan;
+  showPlan(plan);
+  if (!sample){ $("#svgPh").textContent = "La ilustración necesita Claude. Mira el campo de flujo."; selectTab("flow"); }
+
+  // 04 Imagen (campo de flujo, local) y 05 Audio (composición, local) arrancan ya
+  stage("img", "running", "campo de flujo");
+  drawFlow($("#flow"), plan.paleta, A.seed).then(() => {
+    if (my !== runId) return;
+    log("imagen", "campo de flujo · 1800 partículas · 1200×900 px");
+    if (!sample){ stage("img", "done", "campo de flujo"); selectTab("flow"); }
+    refreshDownloads();
+  });
+  const comp = compose(plan.musica, A.seed);
+  current.comp = comp;
+  log("audio", "partitura · " + comp.events.length + " notas · " + comp.duration.toFixed(1) + " s · cadena de Markov");
+  $("#audioMeta").textContent = solfa(plan.musica) + " · " + plan.musica.tempo + " BPM · 8 compases";
+  drawRoll(0);
+  $("#pMusic").disabled = false;
+  stage("audio", "running", "música lista · voz pendiente");
+
+  // 03 Texto y 04 Ilustración en paralelo
+  const jobs = [];
+  if (sample){
+    jobs.push(genText(my, text, plan, fresh));
+    jobs.push(genSvg(my, plan, fresh));
+  } else {
+    setText(localText(plan, A));
+    stage("text", "done", "texto local");
+    log("texto", "sin Claude · resumen algorítmico del análisis");
+  }
+  await Promise.allSettled(jobs);
+  if (my !== runId) return;
+
+  const canSpeak = "speechSynthesis" in window && current.paragraphs.length > 0;
+  $("#pNarr").disabled = !canSpeak; $("#pBoth").disabled = !canSpeak;
+  if (!("speechSynthesis" in window)) $("#audioNote").textContent = "Este navegador no ofrece voz sintética; la música sí funciona.";
+  stage("audio", "done", canSpeak ? "voz + música" : "música");
+  log("salida", "completado en " + elapsed().toFixed(2) + " s");
+  finishRun();
+}
+
+function finishRun(){
+  clearInterval(clockTimer); clockTimer = null;
+  $("#stop").hidden = true; $("#again").hidden = false; $("#go").disabled = false;
+  refreshDownloads();
+}
+function stopAll(silent){
+  controllers.forEach((c) => c.abort()); controllers = [];
+  stopAudio();
+  if (silent !== true && clockTimer){
+    runId++;
+    log("control", "detenido por el usuario");
+    document.querySelectorAll('.stage[data-state="running"]').forEach((el) => stage(el.dataset.id, "error", "detenido"));
+    if (current && current.comp) $("#pMusic").disabled = false;
+    finishRun();
+  }
+}
+
+function buildPlanPrompt(text, A){
+  return [
+    "Eres el planificador de un generador multimodal (texto, imagen y audio). Analiza la instrucción del usuario y responde SOLO con un objeto JSON con exactamente estas claves:",
+    '{"titulo": "máximo 6 palabras", "idioma": "código BCP-47 del idioma de la instrucción, p. ej. es-ES", "intencion": "una frase", "tono": "1 a 3 palabras", "palabras_clave": ["3 a 6 términos"], "paleta": ["5 colores #RRGGBB que evoquen el tema, del más oscuro al más claro"], "musica": {"escala": "mayor|menor|dorica|frigia|lidia|pentatonica|blues", "tonica": "C|D|E|F|G|A|B", "tempo": 56-140, "caracter": "calmo|pulsante|ondulante|solemne"}, "escena": "descripción visual concreta de 1 o 2 frases para ilustrar la respuesta"}',
+    "Datos del análisis léxico previo: tokens=" + A.tokens.length + ", términos frecuentes=" + JSON.stringify(A.top) + ", polaridad=" + A.sentiment + ", energía=" + A.energy.toFixed(2) + ".",
+    'Instrucción del usuario: """' + text.slice(0, 4000) + '"""'
+  ].join("\n\n");
+}
+
+async function genText(my, text, plan, fresh){
+  stage("text", "running", "pensando…");
+  const prompt = [
+    "Responde a la siguiente instrucción del usuario en su idioma (" + plan.idioma + "). Tono: " + plan.tono + ".",
+    "Escribe entre 180 y 350 palabras en texto plano: párrafos separados por una línea en blanco. Puedes usar líneas que empiecen con \"## \" como subtítulos y \"- \" para listas, y **negritas** para pocas palabras. No uses otro formato. Este texto también se leerá en voz alta: escribe para el oído, con frases claras.",
+    "No repitas la instrucción ni pongas un título general al inicio.",
+    'Instrucción: """' + text.slice(0, 6000) + '"""'
+  ].join("\n\n");
+  log("texto", "→ solicitud " + kb(new TextEncoder().encode(prompt).length) + " a Claude");
+  let first = true;
+  try {
+    const opts = { signal: newSignal(), onText: ({ text: t }) => {
+      if (my !== runId) return;
+      if (first){ first = false; log("texto", "← primer fragmento"); }
+      setText(t, true);
+      stage("text", "running", wordCount(t) + " palabras");
+    } };
+    if (fresh) opts.cache = false;
+    const r = await sample(prompt, opts);
+    if (my !== runId) return;
+    setText(r.text);
+    if (r.truncated) $("#textNote").textContent = "El texto llegó recortado por el límite de longitud.";
+    log("texto", "← completo · " + wordCount(r.text) + " palabras · " + kb(new TextEncoder().encode(r.text).length));
+    stage("text", "done", wordCount(r.text) + " palabras");
+  } catch (e){
+    if (my !== runId) return;
+    if (e.text){ setText(e.text); } else if (e.code !== "cancelled"){ setText(localText(plan, current.analysis)); }
+    if (e.code === "cancelled") return;
+    if (fatal(e)){ sample = null; setMode("local", "Modo local · solo algoritmos"); }
+    $("#textNote").textContent = errCopy(e);
+    log("texto", "× " + (e.code || "error"));
+    stage("text", "error", e.code || "error");
+  }
+}
+
+async function genSvg(my, plan, fresh){
+  const prompt = [
+    'Dibuja una ilustración vectorial original de esta escena: "' + plan.escena + '" (tema: ' + plan.titulo + "; palabras clave: " + plan.palabras_clave.join(", ") + ").",
+    'Responde SOLO con el código de un único elemento <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">, sin ningún texto antes ni después y sin bloque de código.',
+    "Usa principalmente esta paleta: " + plan.paleta.join(", ") + ". Fondo completo, composición con primer plano y fondo, degradados y capas que den profundidad.",
+    "Prohibido: <script>, <foreignObject>, <image>, <text>, atributos on*, fuentes o enlaces externos. Máximo unos 14000 caracteres."
+  ].join("\n");
+  log("imagen", "→ solicitud de ilustración SVG a Claude");
+  try {
+    const opts = { signal: newSignal(), onText: ({ text: t }) => {
+      if (my !== runId) return;
+      stage("img", "running", "svg " + kb(t.length));
+      $("#svgPh").textContent = "Recibiendo vectores… " + kb(t.length);
+    } };
+    if (fresh) opts.cache = false;
+    const r = await sample(prompt, opts);
+    if (my !== runId) return;
+    const svg = cleanSvg(r.text);
+    if (!svg) throw { code: "empty_completion" };
+    current.svg = svg;
+    const url = URL.createObjectURL(new Blob([svg], { type: "image/svg+xml" }));
+    const img = $("#svgImg");
+    img.onload = () => { if (img.dataset.prev) URL.revokeObjectURL(img.dataset.prev); img.dataset.prev = url; };
+    img.onerror = () => { $("#svgPh").hidden = false; img.hidden = true; $("#svgPh").textContent = "La ilustración llegó dañada. Mira el campo de flujo."; selectTab("flow"); };
+    img.src = url; img.hidden = false; $("#svgPh").hidden = true;
+    log("imagen", "← ilustración.svg · " + kb(svg.length));
+    stage("img", "done", "svg " + kb(svg.length) + " + campo");
+    refreshDownloads();
+  } catch (e){
+    if (my !== runId || e.code === "cancelled") return;
+    if (fatal(e)){ sample = null; setMode("local", "Modo local · solo algoritmos"); }
+    $("#svgPh").textContent = "No se pudo dibujar la ilustración.";
+    $("#imgNote").textContent = errCopy(e);
+    selectTab("flow");
+    log("imagen", "× " + (e.code || "error") + " · queda el campo de flujo");
+    stage("img", "error", "solo campo de flujo");
+  }
+}
+function cleanSvg(raw){
+  const m = String(raw).match(/<svg[\s\S]*<\/svg>/i);
+  if (!m) return "";
+  let s = m[0]
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, "")
+    .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*')/gi, "");
+  if (!/xmlns=/.test(s.slice(0, 300))) s = s.replace(/<svg/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+  return s;
+}
+
+function localText(plan, A){
+  return [
+    "## Modo local",
+    "Esta vista no tiene conexión con Claude, así que Prisma trabajó solo con sus algoritmos. Tu instrucción se dividió en **" + A.tokens.length + " tokens** (" + A.unique + " distintos) y de ellos salió la semilla 0x" + A.seed.toString(16) + ", que fija la imagen y la música.",
+    "- Términos con más peso: " + (A.top.join(", ") || "ninguno") + "\n- Polaridad: " + (A.sentiment > 0 ? "positiva" : A.sentiment < 0 ? "negativa" : "neutra") + "\n- Escala elegida: " + solfa(plan.musica) + " a " + plan.musica.tempo + " BPM",
+    "Agrega tu clave de API en el archivo .env y reinicia server.py para recibir también el texto redactado y la ilustración vectorial."
+  ].join("\n\n");
+}
+
+/* ---------- Presentación del texto ---------- */
+function wordCount(t){ return (t.match(/\S+/g) || []).length; }
+function inline(el, s){
+  s.split(/(\*\*[^*]+\*\*)/g).forEach((part) => {
+    if (/^\*\*[^*]+\*\*$/.test(part)){ const b = document.createElement("strong"); b.textContent = part.slice(2, -2); el.append(b); }
+    else if (part) el.append(document.createTextNode(part.replace(/\*\*/g, "")));
+  });
+}
+function setText(t, streaming){
+  current.text = t;
+  const box = $("#textOut"); box.textContent = "";
+  const paragraphs = [];
+  t.replace(/\r/g, "").split(/\n{2,}/).forEach((block) => {
+    block = block.trim(); if (!block) return;
+    const lines = block.split("\n");
+    let el;
+    if (/^#{1,4}\s/.test(block) && lines.length === 1){ el = document.createElement("h3"); inline(el, block.replace(/^#+\s*/, "")); }
+    else if (lines.every((l) => /^\s*[-*•]\s+/.test(l))){
+      el = document.createElement("ul");
+      lines.forEach((l) => { const li = document.createElement("li"); inline(li, l.replace(/^\s*[-*•]\s+/, "")); el.append(li); });
+    } else {
+      // un bloque con subtítulo y párrafo pegados
+      if (/^#{1,4}\s/.test(lines[0])){
+        const h = document.createElement("h3"); inline(h, lines.shift().replace(/^#+\s*/, "")); box.append(h);
+        paragraphs.push({ el: h, text: h.textContent });
+      }
+      el = document.createElement("p"); inline(el, lines.join(" "));
+    }
+    box.append(el);
+    paragraphs.push({ el, text: el.textContent });
+  });
+  if (!streaming) current.paragraphs = paragraphs.filter((p) => p.text.trim());
+}
+function showPlan(plan){
+  $("#titleOut").textContent = plan.titulo;
+  const tags = $("#tags"); tags.textContent = "";
+  [plan.tono, plan.intencion].concat(plan.palabras_clave).filter(Boolean).slice(0, 8).forEach((k) => {
+    const s = document.createElement("span"); s.className = "tag"; s.textContent = k; tags.append(s);
+  });
+  const pal = $("#palette"); pal.textContent = "";
+  plan.paleta.forEach((c) => { const s = document.createElement("span"); s.style.background = c; s.title = c; pal.append(s); });
+}
+
+/* ---------- Pestañas de imagen ---------- */
+function selectTab(which){
+  const svg = which === "svg";
+  $("#tabSvg").setAttribute("aria-selected", String(svg)); $("#tabFlow").setAttribute("aria-selected", String(!svg));
+  $("#frameSvg").hidden = !svg; $("#frameFlow").hidden = svg;
+}
+$("#tabSvg").addEventListener("click", () => selectTab("svg"));
+$("#tabFlow").addEventListener("click", () => selectTab("flow"));
+
+/* ---------- 04 · Campo de flujo (ruido de valor, local) ---------- */
+function luminance(hex){ const n = parseInt(hex.slice(1), 16); return 0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255); }
+function makeNoise(rnd){
+  const N = 256, g = new Float32Array(N * N); for (let i = 0; i < g.length; i++) g[i] = rnd();
+  const at = (i, j) => g[((j & 255) * N) + (i & 255)];
+  const sm = (t) => t * t * (3 - 2 * t);
+  return (x, y) => {
+    const xi = Math.floor(x), yi = Math.floor(y), u = sm(x - xi), v = sm(y - yi);
+    const a = at(xi, yi), b = at(xi + 1, yi), c = at(xi, yi + 1), d = at(xi + 1, yi + 1);
+    return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+  };
+}
+let flowToken = 0;
+function drawFlow(canvas, palette, seed){
+  const token = ++flowToken;
+  const ctx = canvas.getContext("2d"), W = canvas.width, H = canvas.height;
+  const rnd = mulberry32(seed ^ 0x9e3779b9);
+  const noise = makeNoise(rnd);
+  const cols = [...palette].sort((a, b) => luminance(a) - luminance(b));
+  const bg = cols[0], inks = cols.slice(1);
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  const scale = 0.0016 + rnd() * 0.0022, turns = 2 + rnd() * 3;
+  const parts = Array.from({ length: 1800 }, () => ({ x: rnd() * W, y: rnd() * H, c: inks[Math.floor(rnd() * inks.length)], w: 0.6 + rnd() * 1.6 }));
+  const field = (x, y) => (noise(x * scale, y * scale) * 0.7 + noise(x * scale * 3.1 + 40, y * scale * 3.1) * 0.3) * Math.PI * turns;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const TOTAL = 140, PER = reduce ? TOTAL : 5;
+  let step = 0;
+  ctx.globalAlpha = 0.28; ctx.lineCap = "round";
+  return new Promise((resolve) => {
+    function frame(){
+      if (token !== flowToken) return resolve();
+      for (let s = 0; s < PER && step < TOTAL; s++, step++){
+        for (const p of parts){
+          const a = field(p.x, p.y), nx = p.x + Math.cos(a) * 2.4, ny = p.y + Math.sin(a) * 2.4;
+          ctx.strokeStyle = p.c; ctx.lineWidth = p.w;
+          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(nx, ny); ctx.stroke();
+          p.x = nx; p.y = ny;
+          if (p.x < 0 || p.x > W || p.y < 0 || p.y > H){ p.x = rnd() * W; p.y = rnd() * H; }
+        }
+      }
+      if (step < TOTAL) requestAnimationFrame(frame); else { ctx.globalAlpha = 1; resolve(); }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+/* ---------- 05 · Composición algorítmica ---------- */
+const SCALES = { mayor: [0,2,4,5,7,9,11], menor: [0,2,3,5,7,8,10], dorica: [0,2,3,5,7,9,10], frigia: [0,1,3,5,7,8,10], lidia: [0,2,4,6,7,9,11], pentatonica: [0,2,4,7,9], blues: [0,3,5,6,7,10] };
+const SCALE_NAME = { mayor: "mayor", menor: "menor", dorica: "dórica", frigia: "frigia", lidia: "lidia", pentatonica: "pentatónica", blues: "blues" };
+const NOTE = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+const SOLFA = { C: "Do", D: "Re", E: "Mi", F: "Fa", G: "Sol", A: "La", B: "Si" };
+const RHYTHMS = {
+  calmo: [[2,2,2,2],[3,1,2,2],[4,2,2],[2,2,4]],
+  pulsante: [[1,1,1,1,1,1,1,1],[2,1,1,2,1,1],[1,1,2,1,1,2]],
+  ondulante: [[3,1,3,1],[2,1,1,3,1],[1,2,1,2,2]],
+  solemne: [[4,4],[6,2],[4,2,2]]
+};
+function solfa(m){ return SOLFA[m.tonica] + " " + SCALE_NAME[m.escala]; }
+function compose(m, seed){
+  const rnd = mulberry32(seed ^ 0x51ed270b);
+  const sc = SCALES[m.escala], n = sc.length, root = 48 + NOTE[m.tonica];
+  const beat = 60 / m.tempo, eighth = beat / 2, bar = beat * 4;
+  const deg = (d, oct) => root + oct * 12 + sc[((d % n) + n) % n] + 12 * Math.floor(d / n);
+  const progs = n >= 7 ? [[0,5,3,4],[0,3,4,0],[0,4,5,3],[5,3,0,4],[0,2,3,4]] : [[0,3,2,0],[0,2,3,1],[0,4,3,2]];
+  const prog = progs[Math.floor(rnd() * progs.length)];
+  const chordAt = (b) => prog[b % prog.length];
+  const chordTones = (c) => [c, c + 2, c + 4];
+  const pats = RHYTHMS[m.caracter] || RHYTHMS.calmo;
+  // Cadena de Markov sobre grados: pasos cortos más probables que saltos
+  const moves = [-3, -2, -1, 0, 1, 2, 3], weights = [0.5, 1.2, 4, 0.8, 4, 1.2, 0.5];
+  const pick = () => { let r = rnd() * weights.reduce((a, b) => a + b, 0); for (let i = 0; i < moves.length; i++){ r -= weights[i]; if (r <= 0) return moves[i]; } return 0; };
+  const nearestChordTone = (idx, c) => { let best = idx, bd = 99; for (const t of chordTones(c)) for (const o of [-n, 0, n]){ const d = Math.abs(t + o - idx); if (d < bd){ bd = d; best = t + o; } } return best; };
+  const clamp = (i) => Math.max(0, Math.min(n * 2, i));
+  let idx = chordTones(chordAt(0))[Math.floor(rnd() * 3)];
+  function phrase(bars, b0){
+    const out = [];
+    for (let b = 0; b < bars; b++){
+      const pat = pats[Math.floor(rnd() * pats.length)], notes = []; let pos = 0;
+      for (const d of pat){
+        idx = clamp(idx + pick());
+        if (pos % 4 === 0 && rnd() < 0.65) idx = clamp(nearestChordTone(idx, chordAt(b0 + b)));
+        notes.push({ pos, d, idx, rest: pos > 0 && rnd() < 0.08 });
+        pos += d;
+      }
+      out.push(notes);
+    }
+    return out;
+  }
+  const vary = (ph, b0) => ph.map((notes, b) => notes.map((x) => {
+    let i = x.idx;
+    if (rnd() < 0.3) i = clamp(i + (rnd() < 0.5 ? -1 : 1));
+    if (x.pos % 4 === 0) i = clamp(nearestChordTone(i, chordAt(b0 + b)));
+    return { ...x, idx: i };
+  }));
+  const A = phrase(2, 0), B = phrase(2, 4);
+  const A2 = vary(A, 2), A3 = vary(A, 6);
+  const last = A3[1]; last[last.length - 1] = { ...last[last.length - 1], idx: n, rest: false }; // cadencia a la tónica
+  const melody = [...A, ...A2, ...B, ...A3];
+  const events = [];
+  melody.forEach((notes, b) => notes.forEach((x) => {
+    if (x.rest) return;
+    events.push({ v: "lead", t: b * bar + x.pos * eighth, dur: x.d * eighth * 0.92, midi: deg(x.idx, 1), vel: x.pos % 4 === 0 ? 1 : 0.75 });
+  }));
+  for (let b = 0; b < 8; b++){
+    const c = chordAt(b);
+    chordTones(c).forEach((t) => events.push({ v: "pad", t: b * bar, dur: bar * 0.98, midi: deg(t, 0), vel: 0.6 }));
+    if (m.caracter === "pulsante"){
+      for (let k = 0; k < 8; k++) events.push({ v: "bass", t: b * bar + k * eighth, dur: eighth * 0.8, midi: deg(c, -1) + (k % 2 ? 12 : 0), vel: k % 2 ? 0.6 : 0.9 });
+    } else if (m.caracter === "solemne"){
+      events.push({ v: "bass", t: b * bar, dur: bar * 0.95, midi: deg(c, -1), vel: 0.9 });
+    } else {
+      events.push({ v: "bass", t: b * bar, dur: beat * 1.9, midi: deg(c, -1), vel: 0.9 });
+      events.push({ v: "bass", t: b * bar + beat * 2, dur: beat * 1.9, midi: deg(c + 4, -1), vel: 0.7 });
+    }
+  }
+  return { events, duration: bar * 8, caracter: m.caracter };
+}
+
+/* ---------- Motor de audio (Web Audio) ---------- */
+let AC = null, master = null, analyser = null, streamDest = null, music = null, rafRoll = 0;
+function ensureAudio(){
+  if (!AC){
+    AC = new (window.AudioContext || window.webkitAudioContext)();
+    master = AC.createGain(); master.gain.value = 0.8;
+    const comp = AC.createDynamicsCompressor();
+    const delay = AC.createDelay(1), fb = AC.createGain(), wet = AC.createGain();
+    delay.delayTime.value = 0.27; fb.gain.value = 0.3; wet.gain.value = 0.22;
+    master.connect(comp); master.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(comp);
+    analyser = AC.createAnalyser(); analyser.fftSize = 1024;
+    comp.connect(analyser); analyser.connect(AC.destination);
+    try { streamDest = AC.createMediaStreamDestination(); comp.connect(streamDest); } catch (_) { streamDest = null; }
+  }
+  if (AC.state === "suspended") AC.resume();
+}
+function voice(bus, ev, t0, caracter){
+  const t = t0 + ev.t, f = 440 * Math.pow(2, (ev.midi - 69) / 12);
+  const o = AC.createOscillator(), g = AC.createGain(), flt = AC.createBiquadFilter();
+  flt.type = "lowpass";
+  let peak, att, rel;
+  if (ev.v === "lead"){ o.type = caracter === "solemne" ? "sawtooth" : caracter === "pulsante" ? "square" : "triangle"; flt.frequency.value = caracter === "calmo" ? 1800 : 2600; peak = 0.16 * ev.vel; att = 0.012; rel = 0.25; }
+  else if (ev.v === "bass"){ o.type = "sine"; flt.frequency.value = 900; peak = 0.26 * ev.vel; att = 0.01; rel = 0.12; }
+  else { o.type = "sawtooth"; flt.frequency.value = 700; peak = 0.035; att = 0.35; rel = 0.6; }
+  o.frequency.value = f;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(peak, t + att);
+  g.gain.setValueAtTime(peak, t + Math.max(att, ev.dur * 0.6));
+  g.gain.exponentialRampToValueAtTime(0.0006, t + ev.dur + rel);
+  o.connect(flt); flt.connect(g); g.connect(bus);
+  o.start(t); o.stop(t + ev.dur + rel + 0.05);
+}
+function playMusic(opts){
+  const { loop = false, volume = 1, record = false } = opts || {};
+  if (!current || !current.comp) return;
+  ensureAudio(); stopMusic();
+  const bus = AC.createGain(); bus.gain.value = volume; bus.connect(master);
+  const st = { bus, loop, cycleStart: 0, timer: 0, rec: null, chunks: [] };
+  music = st;
+  const cycle = (start) => {
+    st.cycleStart = start;
+    current.comp.events.forEach((ev) => voice(bus, ev, start, current.comp.caracter));
+    const end = start + current.comp.duration;
+    st.timer = setTimeout(() => {
+      if (music !== st) return;
+      if (st.loop) cycle(end); else stopMusic(true);
+    }, Math.max(0, (end - AC.currentTime) * 1000 + (st.loop ? -250 : 700)));
+  };
+  if (record && streamDest && window.MediaRecorder){
+    try {
+      const type = ["audio/webm;codecs=opus", "audio/webm"].find((t) => MediaRecorder.isTypeSupported(t));
+      if (type){
+        st.rec = new MediaRecorder(streamDest.stream, { mimeType: type });
+        st.rec.ondataavailable = (e) => { if (e.data && e.data.size) st.chunks.push(e.data); };
+        st.rec.onstop = () => { if (st.complete && st.chunks.length){ current.recording = new Blob(st.chunks, { type: "audio/webm" }); log("audio", "grabación lista · " + kb(current.recording.size)); refreshDownloads(); } };
+        st.rec.start();
+      }
+    } catch (_) { st.rec = null; }
+  }
+  cycle(AC.currentTime + 0.08);
+  animateRoll();
+}
+function stopMusic(natural){
+  const st = music; if (!st) return;
+  music = null; clearTimeout(st.timer);
+  st.complete = natural === true;
+  try { st.bus.gain.setTargetAtTime(0, AC.currentTime, 0.04); } catch (_) {}
+  setTimeout(() => { try { st.bus.disconnect(); } catch (_) {} }, 400);
+  if (st.rec && st.rec.state !== "inactive") st.rec.stop();
+  cancelAnimationFrame(rafRoll); drawRoll(-1);
+}
+function speak(onEnd){
+  const synth = window.speechSynthesis; if (!synth || !current.paragraphs.length) return false;
+  synth.cancel();
+  const lang = current.plan.idioma || "es-ES";
+  const voices = synth.getVoices();
+  const v = voices.find((x) => x.lang && x.lang.toLowerCase() === lang.toLowerCase()) || voices.find((x) => x.lang && x.lang.toLowerCase().startsWith(lang.slice(0, 2).toLowerCase()));
+  const ps = current.paragraphs, mark = (i) => ps.forEach((p, k) => p.el.classList.toggle("reading", k === i));
+  ps.forEach((p, i) => {
+    const u = new SpeechSynthesisUtterance(p.text);
+    u.lang = lang; if (v) u.voice = v; u.rate = 1;
+    u.onstart = () => mark(i);
+    if (i === ps.length - 1){ u.onend = () => { mark(-1); onEnd && onEnd(); }; u.onerror = u.onend; }
+    synth.speak(u);
+  });
+  log("audio", "narración · " + ps.length + " bloques · voz " + (v ? v.name : lang));
+  return true;
+}
+function stopSpeech(){ if (window.speechSynthesis) window.speechSynthesis.cancel(); if (current) current.paragraphs.forEach((p) => p.el.classList.remove("reading")); }
+function stopAudio(){ stopMusic(); stopSpeech(); }
+
+$("#pNarr").addEventListener("click", () => { stopAudio(); speak(); });
+$("#pMusic").addEventListener("click", () => { stopAudio(); playMusic({ record: true }); });
+$("#pBoth").addEventListener("click", () => { stopAudio(); playMusic({ loop: true, volume: 0.35 }); if (!speak(() => stopMusic())) stopMusic(); });
+$("#pStop").addEventListener("click", stopAudio);
+
+/* Partitura (piano roll) con cabezal y forma de onda */
+function drawRoll(playT){
+  const cv = $("#roll"), dpr = Math.min(2, window.devicePixelRatio || 1);
+  const W = cv.clientWidth || 600, H = cv.clientHeight || 150;
+  if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+  const ctx = cv.getContext("2d"); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+  if (!current || !current.comp) return;
+  const { events, duration } = current.comp;
+  let lo = 127, hi = 0; events.forEach((e) => { lo = Math.min(lo, e.midi); hi = Math.max(hi, e.midi); });
+  const pad = 10, span = Math.max(12, hi - lo + 1), rowH = (H - pad * 2) / span;
+  const line = cssVar("--line"), audio = cssVar("--c-audio"), muted = cssVar("--muted"), ink = cssVar("--ink");
+  ctx.strokeStyle = line; ctx.lineWidth = 1;
+  for (let b = 0; b <= 8; b++){ const x = pad + (W - pad * 2) * b / 8; ctx.beginPath(); ctx.moveTo(x, pad); ctx.lineTo(x, H - pad); ctx.stroke(); }
+  events.forEach((e) => {
+    const x = pad + (W - pad * 2) * e.t / duration, w = Math.max(2, (W - pad * 2) * e.dur / duration);
+    const y = H - pad - (e.midi - lo + 1) * rowH;
+    ctx.globalAlpha = e.v === "pad" ? 0.25 : e.v === "bass" ? 0.55 : 1;
+    ctx.fillStyle = e.v === "lead" ? audio : muted;
+    ctx.fillRect(x, y, w, Math.max(2, rowH - 1));
+  });
+  ctx.globalAlpha = 1;
+  if (playT >= 0 && music){
+    const x = pad + (W - pad * 2) * (playT % duration) / duration;
+    ctx.strokeStyle = ink; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x, 4); ctx.lineTo(x, H - 4); ctx.stroke();
+    const buf = new Uint8Array(analyser.fftSize); analyser.getByteTimeDomainData(buf);
+    ctx.strokeStyle = ink; ctx.globalAlpha = 0.5; ctx.lineWidth = 1; ctx.beginPath();
+    for (let i = 0; i < buf.length; i++){ const px = i / (buf.length - 1) * W, py = H / 2 + (buf[i] - 128) / 128 * H * 0.4; i ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+    ctx.stroke(); ctx.globalAlpha = 1;
+  }
+}
+function animateRoll(){
+  cancelAnimationFrame(rafRoll);
+  const tick = () => { if (!music) return; drawRoll(Math.max(0, AC.currentTime - music.cycleStart)); rafRoll = requestAnimationFrame(tick); };
+  rafRoll = requestAnimationFrame(tick);
+}
+window.addEventListener("resize", () => { if (!music) drawRoll(-1); });
+if (window.matchMedia) matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => drawRoll(-1));
+
+/* ---------- Descargas ---------- */
+function refreshDownloads(){
+  const ok = !!downloads && !!current;
+  $("#dlText").hidden = !(ok && current.text && current.text.length > 0);
+  $("#dlSvg").hidden = !(ok && current.svg);
+  $("#dlPng").hidden = !(ok && current.plan);
+  $("#dlAudio").hidden = !(ok && current.recording);
+  if (ok && current.comp && !current.recording && window.MediaRecorder) $("#audioNote").textContent ||= "Reproduce la música una vez completa para poder descargarla.";
+  if (ok && current.recording && /Reproduce la música/.test($("#audioNote").textContent)) $("#audioNote").textContent = "";
+}
+async function offer(filename, data, noteEl){
+  try { await downloads.save({ filename, data }); }
+  catch (e){ if (e && e.code !== "declined") noteEl.textContent = "No se pudo guardar el archivo en esta vista."; }
+}
+$("#dlText").addEventListener("click", () => offer(slug(current.plan && current.plan.titulo) + ".md", "# " + (current.plan ? current.plan.titulo : "Prisma") + "\n\n" + current.text + "\n", $("#textNote")));
+$("#dlSvg").addEventListener("click", () => offer(slug(current.plan.titulo) + ".svg", current.svg, $("#imgNote")));
+$("#dlPng").addEventListener("click", () => $("#flow").toBlob((b) => b && offer(slug(current.plan.titulo) + "-campo.png", b, $("#imgNote")), "image/png"));
+$("#dlAudio").addEventListener("click", () => offer(slug(current.plan.titulo) + ".webm", current.recording, $("#audioNote")));
+})();
+</script>
+</body>
+</html>

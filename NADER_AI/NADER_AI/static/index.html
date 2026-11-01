@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NADER AI</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23050a16'/%3E%3Cpath d='M8 24V8l16 16V8' stroke='%232f8cff' stroke-width='3.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="top">
+      <div class="brand">
+        <h1>NADER AI<span class="cursor" aria-hidden="true"></span></h1>
+        <p class="tag">Asistente multimodal · <span id="version">v—</span></p>
+      </div>
+      <ul class="modules" id="modules" aria-label="Estado de los módulos">
+        <li data-state="cargando">Cargando módulos…</li>
+      </ul>
+    </header>
+
+    <main class="panel" aria-labelledby="t-voz">
+      <div class="panel-head">
+        <h2 id="t-voz">Texto a voz</h2>
+        <div class="status" id="status" role="status" aria-live="polite" data-tone="idle">
+          <span class="dot" aria-hidden="true"></span><span id="statusText">Conectando con el servidor…</span>
+        </div>
+      </div>
+
+      <div class="field">
+        <div class="field-top">
+          <label for="texto">Texto o instrucción</label>
+          <div class="field-tools">
+            <button type="button" class="btn ghost sm" id="btnDictar" hidden title="Usa el reconocimiento de voz del navegador">🎙 Dictar</button>
+            <span class="counter" id="counter" aria-live="off">0 / 5000</span>
+          </div>
+        </div>
+        <textarea id="texto" rows="6" placeholder="Escribe aquí el texto que NADER AI va a narrar…" spellcheck="true"></textarea>
+      </div>
+
+      <div class="controls">
+        <div class="control">
+          <label for="motor">Motor de voz</label>
+          <select id="motor">
+            <option value="edge">Edge TTS · servicio externo (MP3)</option>
+            <option value="navegador">Voz del navegador</option>
+          </select>
+        </div>
+        <div class="control">
+          <label for="voz">Voz</label>
+          <select id="voz"></select>
+        </div>
+        <div class="control">
+          <label for="velocidad">Velocidad <output id="velocidadValor" for="velocidad">+0%</output></label>
+          <input type="range" id="velocidad" min="-50" max="50" step="5" value="0">
+        </div>
+      </div>
+      <p class="hint" id="motorNota"></p>
+
+      <div class="actions">
+        <button type="button" class="btn primary" id="btnGenerar">Generar y reproducir</button>
+        <button type="button" class="btn" id="btnPausa" disabled>Pausa</button>
+        <button type="button" class="btn" id="btnReanudar" disabled>Reanudar</button>
+        <button type="button" class="btn danger" id="btnDetener" disabled>Detener</button>
+      </div>
+
+      <div class="player" id="playerBox">
+        <audio id="audio" controls preload="none"></audio>
+      </div>
+
+      <div class="error" id="error" role="alert" hidden></div>
+    </main>
+
+    <section class="panel secondary" aria-labelledby="t-ia">
+      <div class="panel-head">
+        <h2 id="t-ia">Respuesta de IA</h2>
+        <span class="badge" id="iaEstado">—</span>
+      </div>
+      <p class="hint" id="iaNota">Este espacio mostrará las respuestas de un modelo de lenguaje cuando haya uno configurado.</p>
+      <div class="actions">
+        <button type="button" class="btn" id="btnPreguntar" disabled>Preguntar a NADER AI</button>
+        <button type="button" class="btn ghost" id="btnNarrarRespuesta" disabled>Narrar respuesta</button>
+      </div>
+      <div class="respuesta" id="respuesta" aria-live="polite"></div>
+
+      <div class="sub">
+        <h3>Imágenes</h3>
+        <span class="badge" id="imgEstado">—</span>
+      </div>
+      <div class="img-zone" id="imgZone" hidden>
+        <input type="text" id="imgPrompt" maxlength="2000" placeholder="Describe la imagen…">
+        <button type="button" class="btn" id="btnImagen">Generar imagen</button>
+        <img id="imgOut" alt="Imagen generada" hidden>
+      </div>
+      <p class="hint" id="imgNota"></p>
+    </section>
+
+    <footer class="foot">
+      <span>Edge TTS envía el texto al servicio de voz de Microsoft y necesita Internet.</span>
+      <span>Las voces del navegador dependen del navegador y del sistema operativo.</span>
+      <a href="/docs" target="_blank" rel="noopener">Documentación de la API</a>
+    </footer>
+  </div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
